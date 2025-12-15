@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="form-card">
+    <h2>New Project</h2>
+    <form method="POST" action="/projects/new">
+        <label>Project Name
+            <input type="text" name="name" required>
+        </label>
+        <div class="inline-fields">
+            <label>Quantity
+                <input type="number" name="bags_bottles" min="0">
+            </label>
+            <label>Packaging
+                <select name="quantity_unit">
+                    <option value="Bags">Bags</option>
+                    <option value="Bottles">Bottles</option>
+                </select>
+            </label>
+            <label>Gummies
+                <input type="number" name="gummies" min="0">
+            </label>
+        </div>
+        <label>Produced Quantity
+            <input type="number" name="completed_bags" min="0">
+        </label>
+        <label>Status
+            <select name="storage_status">
+                <option value="Stored">Stored</option>
+                <option value="Shipped Out">Shipped Out</option>
+            </select>
+        </label>
+        <label>Notes
+            <textarea name="description" rows="4"></textarea>
+        </label>
+        <label>Due Date
+            <input type="date" name="due_date">
+        </label>
+        <button type="submit">Create Project</button>
+    </form>
+</div>
+
+{% endblock %}

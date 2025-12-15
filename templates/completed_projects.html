@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="dashboard-header">
+    <div>
+        <h2>Completed Projects</h2>
+        <p class="muted">All finished work and notes.</p>
+    </div>
+    <a href="/dashboard" class="button-link">Back to Dashboard</a>
+</div>
+
+{% if completed_projects %}
+    <div class="project-list">
+        {% for project in completed_projects %}
+        <article class="project-card">
+            <header class="project-card__header">
+                <h3>{{ project.name }}</h3>
+                <span class="status-pill status-completed">Completed</span>
+            </header>
+            <p class="project-description">
+                {% if project.bags_bottles %}
+                    {{ project.bags_bottles|comma }} {{ project.quantity_unit or 'units' }}
+                {% endif %}
+                {% if project.gummies %}
+                    {% if project.bags_bottles %} &mdash; {% endif %}
+                    {{ project.gummies|comma }} gummies
+                {% endif %}
+                {% if project.completed_bags %}
+                    <br><strong>Produced:</strong> {{ project.completed_bags|comma }} {{ project.quantity_unit or 'units' }}
+                {% endif %}
+                {% if project.storage_status %}
+                    <br><strong>Status:</strong> {{ project.storage_status }}
+                {% endif %}
+                {% if project.description %}
+                    <br>{{ project.description }}
+                {% endif %}
+            </p>
+            <div class="project-meta">
+                <span><strong>Completed:</strong> {{ project.completed_on or "Date N/A" }}</span>
+            </div>
+            <form method="POST" action="/dashboard" class="status-form">
+                <input type="hidden" name="action" value="update_status">
+                <input type="hidden" name="project_id" value="{{ project.id }}">
+                <input type="hidden" name="status" value="Pending">
+                <button type="submit">Move Back to Active</button>
+            </form>
+        </article>
+        {% endfor %}
+    </div>
+{% else %}
+    <p class="muted">No completed projects recorded yet.</p>
+{% endif %}
+
+{% endblock %}

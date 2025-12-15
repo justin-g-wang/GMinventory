@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="dashboard-header">
+    <div>
+        <h2>Projects</h2>
+    </div>
+    <a class="button-link" href="/projects/new">Add Project</a>
+</div>
+
+<div class="dashboard-grid">
+    <div class="stat-card">
+        <div class="stat-label">Active Projects</div>
+        <div class="stat-value">{{ stats.pending }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Completed</div>
+        <div class="stat-value accent">{{ stats.completed }}</div>
+        <a href="/projects/completed" class="stat-link">View all</a>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Total Projects</div>
+        <div class="stat-value">{{ stats.total }}</div>
+    </div>
+</div>
+
+<div class="dashboard-content">
+    <section class="project-list">
+        {% if projects %}
+            {% for project in projects %}
+            <article class="project-card">
+                <header class="project-card__header">
+                    <h3>{{ project.name }}</h3>
+                    <span class="status-pill status-{{ project.status|lower|replace(' ', '-') }}">{{ project.status }}</span>
+                </header>
+                <p class="project-description">
+                    {% if project.bags_bottles %}
+                        {{ project.bags_bottles|comma }} {{ project.quantity_unit or 'units' }}
+                    {% endif %}
+                    {% if project.gummies %}
+                        {% if project.bags_bottles %} &mdash; {% endif %}
+                        {{ project.gummies|comma }} gummies
+                    {% endif %}
+                    {% if project.completed_bags %}
+                        <br><strong>Produced:</strong> {{ project.completed_bags|comma }} / {{ project.bags_bottles|comma }} {{ project.quantity_unit or 'units' }}
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: {{ project.progress_percent }}%"></div>
+                        </div>
+                    {% endif %}
+                    {% if project.storage_status %}
+                        <br><strong>Status:</strong> {{ project.storage_status }}
+                    {% endif %}
+                    {% if project.description %}
+                        <br>{{ project.description }}
+                    {% endif %}
+                </p>
+                <div class="project-meta">
+                    <span class="due-label">Due</span>
+                    <span class="due-date {% if project.due_status == 'overdue' %}due-overdue{% endif %}">
+                        {{ project.due_display }}
+                    </span>
+                </div>
+                <button type="button" class="edit-toggle">Edit Details</button>
+                <form method="POST" class="edit-form hidden">
+                    <input type="hidden" name="action" value="edit">
+                    <input type="hidden" name="project_id" value="{{ project.id }}">
+                    <label>Project Name
+                        <input type="text" name="name" value="{{ project.name }}" required>
+                    </label>
+                    <div class="inline-fields">
+                        <label>Quantity
+                            <input type="number" name="bags_bottles" value="{{ project.bags_bottles }}">
+                        </label>
+                        <label>Packaging
+                            <select name="quantity_unit">
+                                <option value="Bags" {% if project.quantity_unit == "Bags" %}selected{% endif %}>Bags</option>
+                                <option value="Bottles" {% if project.quantity_unit == "Bottles" %}selected{% endif %}>Bottles</option>
+                            </select>
+                        </label>
+                        <label>Gummies
+                            <input type="number" name="gummies" value="{{ project.gummies }}">
+                        </label>
+                    </div>
+                    <label>Produced Quantity
+                        <input type="number" name="completed_bags" value="{{ project.completed_bags }}">
+                    </label>
+                    <label>Storage Status
+                        <select name="storage_status">
+                            <option value="Stored" {% if project.storage_status == "Stored" %}selected{% endif %}>Stored</option>
+                            <option value="Shipped Out" {% if project.storage_status == "Shipped Out" %}selected{% endif %}>Shipped Out</option>
+                        </select>
+                    </label>
+                    <label>Notes
+                        <textarea name="description" rows="3">{{ project.description }}</textarea>
+                    </label>
+                    <label>Due Date
+                        <input type="date" name="due_date" value="{{ project.due_date }}">
+                    </label>
+                    <button type="submit">Save Changes</button>
+                </form>
+                <form method="POST" class="status-form" data-project-id="{{ project.id }}">
+                    <input type="hidden" name="action" value="update_status">
+                    <input type="hidden" name="project_id" value="{{ project.id }}">
+                    <div class="status-form__controls">
+                        <label>
+                            Status
+                            <select name="status" class="status-select">
+                                <option value="Pending" {% if project.status == "Pending" %}selected{% endif %}>Pending</option>
+                                <option value="In Progress" {% if project.status == "In Progress" %}selected{% endif %}>In Progress</option>
+                                <option value="Completed" {% if project.status == "Completed" %}selected{% endif %}>Completed</option>
+                            </select>
+                        </label>
+                        <div class="complete-extra hidden">
+                            <label>Completion Date
+                                <input type="date" name="completion_date">
+                            </label>
+                        </div>
+                    </div>
+                    <button type="submit">Update</button>
+                </form>
+                <form method="POST" class="delete-form" onsubmit="return confirm('Delete this project?');">
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="project_id" value="{{ project.id }}">
+                    <button type="submit">Delete</button>
+                </form>
+            </article>
+            {% endfor %}
+        {% else %}
+            <p class="muted">No projects yet. Add one using the form.</p>
+        {% endif %}
+    </section>
+
+</div>
+
+<script>
+document.querySelectorAll(".status-form").forEach(form => {
+    const select = form.querySelector(".status-select");
+    const extra = form.querySelector(".complete-extra");
+
+    const toggleExtra = () => {
+        if (select.value === "Completed") {
+            extra.classList.remove("hidden");
+        } else {
+            extra.classList.add("hidden");
+        }
+    };
+
+    toggleExtra();
+    select.addEventListener("change", toggleExtra);
+});
+
+document.querySelectorAll(".edit-toggle").forEach(button => {
+    const form = button.nextElementSibling;
+    button.addEventListener("click", () => {
+        form.classList.toggle("hidden");
+    });
+});
+</script>
+
+{% endblock %}

@@ -5,20 +5,23 @@
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+    <header class="site-header">
+        <div class="brand">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="Gummy Maker logo" class="brand-logo">
+        </div>
 
-    <nav>
         {% if session.user %}
-<nav>
-    <a href="/current">Current Inventory</a>
-    <a href="/add">Add Item</a>
-    <a href="/remove">Remove Item</a>
-    <a href="/adjust">Adjust Inventory</a>
-    <a href="/history">History</a>
-    <a href="/logout">Logout ({{ session.user }})</a>
-</nav>
-{% endif %}
-
-    </nav>
+        <nav class="main-nav">
+            <a href="/dashboard">Dashboard</a>
+            <a href="/current">Current Inventory</a>
+            <a href="/add">Add Item</a>
+            <a href="/remove">Remove Item</a>
+            <a href="/adjust">Adjust Inventory</a>
+            <a href="/history">History</a>
+            <a href="/logout">Logout</a>
+        </nav>
+        {% endif %}
+    </header>
     
 
 <div class="container">

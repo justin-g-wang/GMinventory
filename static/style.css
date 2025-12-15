@@ -4,19 +4,132 @@ body {
     margin: 0;
 }
 
-nav {
-    background: #333;
-    padding: 10px;
+.site-header {
+    background: linear-gradient(90deg, #ff8a00, #ff5d00);
+    color: #fff;
+    padding: 12px 32px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
-nav a {
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.brand-logo {
+    height: 60px;
+    width: auto;
+}
+
+.brand-title {
+    font-size: 1.4rem;
+    font-weight: 700;
+}
+
+.brand-tagline {
+    font-size: 0.85rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.main-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    justify-content: center;
+}
+
+.main-nav a {
     color: white;
-    margin-right: 15px;
     text-decoration: none;
+    font-weight: bold;
+    letter-spacing: 0.5px;
 }
 
 .container {
-    margin: 20px;
+    margin: 40px auto;
+    max-width: 960px;
+    padding: 0 24px 40px;
+}
+
+.form-card {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 32px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+    margin: 0 auto 32px;
+}
+
+.form-card h2 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.form-card form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.form-card label {
+    display: flex;
+    flex-direction: column;
+    font-weight: bold;
+    color: #333;
+}
+
+.form-card input,
+.form-card select,
+.form-card textarea {
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    font-size: 14px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.form-card button {
+    border: none;
+    background: #ff7a18;
+    color: #fff;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background 0.2s ease-in-out;
+}
+
+.form-card button:hover {
+    background: #ff5d00;
+}
+
+.form-note {
+    color: #666;
+    margin: 0;
+    font-size: 14px;
+}
+
+.inline-fields {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.inline-fields label {
+    flex: 1;
+}
+
+.unit-readonly {
+    background: #f3f4f6;
+    color: #555;
 }
 
 table {
@@ -28,4 +141,291 @@ table {
 th, td {
     border: 1px solid #ccc;
     padding: 8px;
+}
+
+.dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.muted {
+    color: #6b7280;
+    margin: 4px 0 0;
+}
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.stat-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+}
+
+.stat-label {
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 1px;
+    color: #818cf8;
+    margin-bottom: 8px;
+}
+
+.stat-value {
+    font-size: 32px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.stat-value.accent {
+    color: #22c55e;
+}
+
+.stat-link {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 12px;
+    color: #0f172a;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.button-link {
+    border: none;
+    background: #fff;
+    color: #ff5d00;
+    padding: 8px 16px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.dashboard-content {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+}
+
+.project-list {
+    flex: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 320px;
+}
+
+.project-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.project-card__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+.project-description {
+    margin: 12px 0;
+    color: #374151;
+}
+
+.project-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 16px;
+    color: #111827;
+}
+
+.project-meta .due-label {
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #374151;
+}
+
+.project-meta .due-date {
+    font-size: 20px;
+    font-weight: 600;
+    color: #1d4ed8;
+}
+
+.project-meta .due-date.due-overdue {
+    color: #dc2626;
+}
+
+.progress-bar {
+    background: #e5e7eb;
+    border-radius: 999px;
+    height: 10px;
+    width: 100%;
+    margin-top: 6px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    background: linear-gradient(90deg, #10b981, #059669);
+    height: 100%;
+    border-radius: 999px;
+}
+
+.status-pill {
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.status-pending {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.status-in-progress {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.status-completed {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.status-form {
+    display: flex;
+    gap: 12px;
+    margin-top: 12px;
+    align-items: center;
+}
+
+.status-form select {
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+}
+
+.status-form button {
+    border: none;
+    background: #ff7a18;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.project-form {
+    flex: 1;
+    min-width: 280px;
+}
+
+.edit-toggle {
+    border: none;
+    background: transparent;
+    color: #2563eb;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 8px;
+    padding: 0;
+}
+
+.edit-form {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.edit-form.hidden {
+    display: none;
+}
+
+.edit-form input,
+.edit-form textarea {
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+}
+
+.edit-form button {
+    align-self: flex-start;
+    background: #10b981;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.status-form__controls {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.delete-form {
+    margin-top: 8px;
+}
+
+.delete-form button {
+    border: none;
+    background: #dc2626;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.complete-extra.hidden {
+    display: none;
+}
+
+.complete-extra label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 14px;
+}
+
+.complete-extra textarea {
+    resize: vertical;
+}
+
+.completed-details {
+    font-size: 12px;
+    color: #4b5563;
+    margin-top: 4px;
+}
+
+.completed-list {
+    width: 100%;
+}
+
+.completed-items {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.completed-items li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    background: #f3f4f6;
+    border-radius: 8px;
 }

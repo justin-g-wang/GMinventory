@@ -1,65 +1,103 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h2>Add Item</h2>
+<div class="form-card">
+    <h2>Add Item</h2>
 
-<form method="POST">
+    <form method="POST" id="add_form">
 
-    <label>Item Number:
-        <input type="text" name="item_number" id="item_number" onblur="fetchItemData()" oninput="debouncedFetch()" required>
-    </label><br>
-
-    <label>Name:
-        <input type="text" name="name" id="name" required>
-    </label><br>
-
-    <label>Quantity:
-        <input type="number" name="quantity" required>
-    </label>
-
-    <label>Unit:
-        <select name="unit" id="unit" required>
-            <option value="">Select Unit</option>
-            <option value="kg">kg</option>
-            <option value="g">g</option>
-            <option value="lbs">lbs</option>
-            <option value="oz">oz</option>
-            <option value="cases">cases</option>
-            <option value="bottles">bottles</option>
-            <option value="bags">bags</option>
-        </select>
-    </label><br>
-
-    <label>Lot:
-        <div id="lot_select_container" style="display:none;">
-            <select id="lot_select">
-                <option value="">Select Lot</option>
+        {% if items %}
+        <label>Load Existing Item
+            <select id="existing_items">
+                <option value="">Select Item</option>
+                {% for item in items %}
+                    <option value="{{ item[0] }}">{{ item[0] }} - {{ item[1] }}</option>
+                {% endfor %}
             </select>
+        </label>
+        {% endif %}
+
+        <label>Item Number
+            <input type="text" name="item_number" id="item_number" onblur="fetchItemData()" oninput="debouncedFetch()" required>
+        </label>
+
+        <label>Name
+            <input type="text" name="name" id="name" required>
+        </label>
+
+        <div class="inline-fields">
+            <label>Quantity
+                <input type="number" name="quantity" required>
+            </label>
+
+            <label>Unit
+                <select name="unit" id="unit" required>
+                    <option value="">Select Unit</option>
+                    <option value="kg">kg</option>
+                    <option value="g">g</option>
+                    <option value="lbs">lbs</option>
+                    <option value="oz">oz</option>
+                    <option value="cases">cases</option>
+                    <option value="bottles">bottles</option>
+                    <option value="bags">bags</option>
+                </select>
+            </label>
         </div>
-        <input type="text" name="lot" id="lot_input" required>
-    </label><br>
 
-    <label>Manufacture Date:
-        <input type="text" name="mfg_date" id="mfg_date" required>
-    </label><br>
+        <label>Lot
+            <div id="lot_select_container" style="display:none;">
+                <select id="lot_select">
+                    <option value="">Select Lot</option>
+                </select>
+            </div>
+            <input type="text" name="lot" id="lot_input" required>
+        </label>
 
-    <label>Supplier:
-        <input type="text" name="supplier" id="supplier" required>
-    </label><br>
+        <label>Manufacture Date
+            <input type="month" name="mfg_date" id="mfg_date" required>
+        </label>
 
-    <label>Expiration Date:
-        <input type="text" name="exp" id="exp" required>
-    </label><br>
+        <label>Supplier
+            <input type="text" name="supplier" id="supplier" required>
+        </label>
 
-    <button type="submit">Add</button>
-</form>
+        <label>Expiration Date
+            <input type="month" name="exp" id="exp" required>
+        </label>
+
+        <button type="submit">Add</button>
+    </form>
+</div>
 
 <script>
 const itemNumberInput = document.getElementById("item_number");
 const lotSelectContainer = document.getElementById("lot_select_container");
 const lotSelect = document.getElementById("lot_select");
 const lotInput = document.getElementById("lot_input");
+const existingItemSelect = document.getElementById("existing_items");
 let debounceTimer = null;
+
+function showLotInput() {
+    lotInput.style.display = "inline-block";
+    lotInput.required = true;
+}
+
+function hideLotInput() {
+    lotInput.style.display = "none";
+    lotInput.required = false;
+}
+
+if (existingItemSelect) {
+    existingItemSelect.addEventListener("change", () => {
+        const selected = existingItemSelect.value;
+        itemNumberInput.value = selected;
+        if (selected) {
+            fetchItemData();
+        } else {
+            resetFormFields(true);
+        }
+    });
+}
 
 function debouncedFetch() {
     clearTimeout(debounceTimer);
@@ -108,11 +146,14 @@ function loadLots(itemNumber) {
                 newOption.textContent = "Add New Lot";
                 lotSelect.appendChild(newOption);
                 lotSelectContainer.style.display = "block";
-                lotInput.style.display = "none";
+                lotSelect.required = true;
+                hideLotInput();
                 lotInput.value = "";
+                lotSelect.value = "";
             } else {
                 lotSelectContainer.style.display = "none";
-                lotInput.style.display = "inline-block";
+                lotSelect.required = false;
+                showLotInput();
                 lotInput.value = "";
             }
         });
@@ -121,15 +162,18 @@ function loadLots(itemNumber) {
 lotSelect.addEventListener("change", () => {
     const selected = lotSelect.value;
     if (selected === "__new__") {
-        lotInput.style.display = "inline-block";
+        showLotInput();
+        lotSelect.required = false;
         lotInput.value = "";
         lotInput.focus();
     } else if (selected) {
         lotInput.value = selected;
-        lotInput.style.display = "none";
+        hideLotInput();
+        lotSelect.required = true;
     } else {
         lotInput.value = "";
-        lotInput.style.display = "none";
+        hideLotInput();
+        lotSelect.required = true;
     }
 });
 
@@ -143,7 +187,8 @@ function resetFormFields(clearItemSpecific = false) {
     }
     lotSelectContainer.style.display = "none";
     lotSelect.innerHTML = `<option value=\"\">Select Lot</option>`;
-    lotInput.style.display = "inline-block";
+    lotSelect.required = false;
+    showLotInput();
     lotInput.value = "";
 }
 </script>
