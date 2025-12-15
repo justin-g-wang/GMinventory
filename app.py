@@ -5,7 +5,7 @@ import sqlite3
 app = Flask(__name__)
 app.secret_key = "575GummyMaker123"  
 
-
+#codex is op
 # -------------------------
 # DATABASE SETUP
 # -------------------------
@@ -16,20 +16,38 @@ def init_db():
     conn = connect_db()
     c = conn.cursor()
 
-    # MAIN INVENTORY TABLE
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS inventory (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            item_number TEXT,
-            name TEXT,
-            quantity INTEGER,
-            unit TEXT,
-            lot TEXT,
-            mfg_date TEXT,
-            supplier TEXT,
-            exp TEXT
-        )
-    """)
+    def create_inventory_table():
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS inventory (
+                item_number TEXT NOT NULL,
+                name TEXT,
+                quantity INTEGER,
+                unit TEXT,
+                lot TEXT NOT NULL,
+                mfg_date TEXT,
+                supplier TEXT,
+                exp TEXT,
+                PRIMARY KEY (item_number, lot)
+            )
+        """)
+
+    c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='inventory'")
+    if c.fetchone():
+        c.execute("PRAGMA table_info(inventory)")
+        columns = [row[1] for row in c.fetchall()]
+        if "id" in columns:
+            c.execute("ALTER TABLE inventory RENAME TO inventory_old")
+            create_inventory_table()
+            c.execute("""
+                INSERT INTO inventory (item_number, name, quantity, unit, lot, mfg_date, supplier, exp)
+                SELECT item_number, name, quantity, unit, lot, mfg_date, supplier, exp
+                FROM inventory_old
+            """)
+            c.execute("DROP TABLE inventory_old")
+        else:
+            create_inventory_table()
+    else:
+        create_inventory_table()
 
     # MOVEMENT HISTORY TABLE
     c.execute("""
@@ -93,7 +111,7 @@ def index():
 def current_inventory():
     conn = connect_db()
     c = conn.cursor()
-    c.execute("SELECT * FROM inventory")
+    c.execute("SELECT * FROM inventory ORDER BY item_number, lot")
     items = c.fetchall()
     conn.close()
     return render_template("current_inventory.html", items=items)
@@ -114,20 +132,37 @@ def add_item():
         conn = connect_db()
         c = conn.cursor()
 
-        # insert into current inventory table
+        # insert into current inventory table (upsert by item + lot)
         c.execute(
             """
             INSERT INTO inventory (item_number, name, quantity, unit, lot, mfg_date, supplier, exp)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(item_number, lot)
+            DO UPDATE SET
+                name = excluded.name,
+                unit = excluded.unit,
+                mfg_date = excluded.mfg_date,
+                supplier = excluded.supplier,
+                exp = excluded.exp,
+                quantity = inventory.quantity + excluded.quantity
             """,
             (item_number, name, quantity, unit, lot, mfg_date, supplier, exp),
         )
+        c.execute(
+            """
+            SELECT quantity FROM inventory
+            WHERE item_number = ? AND lot = ?
+            """,
+            (item_number, lot),
+        )
+        remaining_row = c.fetchone()
+        remaining_qty = remaining_row[0] if remaining_row else quantity
     
         #inserts into history
         c.execute("""
         INSERT INTO history (item_number, lot, change, remaining, unit, action_type, username)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (item_number, lot, quantity, quantity, unit, "ADD", session["user"]))
+        """, (item_number, lot, quantity, remaining_qty, unit, "ADD", session["user"]))
 
         conn.commit()
         conn.close()
