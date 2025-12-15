@@ -1,16 +1,30 @@
 from flask import Flask, render_template, request, redirect, session
 from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 app = Flask(__name__)
 app.secret_key = "575GummyMaker123"  
 
-#codex is op
+
+PST_ZONE = ZoneInfo("America/Los_Angeles")
 # -------------------------
 # DATABASE SETUP
 # -------------------------
 def connect_db():
     return sqlite3.connect("inventory.db")
+
+def format_timestamp_pst(ts):
+    """Convert UTC timestamp string from SQLite into PST display text."""
+    if not ts:
+        return ts
+    try:
+        dt = datetime.fromisoformat(ts)
+    except ValueError:
+        return ts
+    dt = dt.replace(tzinfo=ZoneInfo("UTC"))
+    return dt.astimezone(PST_ZONE).strftime("%Y-%m-%d %I:%M %p %Z")
 
 def init_db():
     conn = connect_db()
@@ -233,7 +247,7 @@ def remove_item():
 def adjust_item():
     conn = connect_db()
     c = conn.cursor()
-    c.execute("SELECT DISTINCT item_number FROM inventory")
+    c.execute("SELECT DISTINCT item_number, name FROM inventory")
     items = c.fetchall()
     conn.close()
 
@@ -241,6 +255,7 @@ def adjust_item():
         item_number = request.form["item_number"]
         lot = request.form["lot"]
         new_quantity = int(request.form["new_quantity"])
+        new_unit = request.form["unit"]
 
         conn = connect_db()
         c = conn.cursor()
@@ -256,20 +271,20 @@ def adjust_item():
             conn.close()
             return "ERROR: Item/Lot not found"
 
-        old_quantity, unit = row
+        old_quantity, old_unit = row
 
         # Update inventory
         c.execute("""
-            UPDATE inventory SET quantity = ?
+            UPDATE inventory SET quantity = ?, unit = ?
             WHERE item_number = ? AND lot = ?
-        """, (new_quantity, item_number, lot))
+        """, (new_quantity, new_unit, item_number, lot))
 
         # Log to history
         change = new_quantity - old_quantity
         c.execute("""
         INSERT INTO history (item_number, lot, change, remaining, unit, action_type, username)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (item_number, lot, change, new_quantity, unit, "ADJUST", session["user"]))
+        """, (item_number, lot, change, new_quantity, new_unit, "ADJUST", session["user"]))
 
         conn.commit()
         conn.close()
@@ -343,23 +358,32 @@ def history():
 
     conn = connect_db()
     c = conn.cursor()
+    c.execute("SELECT DISTINCT item_number, name FROM inventory ORDER BY item_number")
+    inventory_items = c.fetchall()
 
     # Full history
     c.execute("SELECT * FROM history ORDER BY timestamp DESC")
-    logs = c.fetchall()
+    logs = [
+        (*row[:8], format_timestamp_pst(row[8]))
+        for row in c.fetchall()
+    ]
 
     search_results = None
     if search_term:
         c.execute("SELECT * FROM history WHERE item_number = ? ORDER BY timestamp DESC",
                   (search_term,))
-        search_results = c.fetchall()
+        search_results = [
+            (*row[:8], format_timestamp_pst(row[8]))
+            for row in c.fetchall()
+        ]
 
     conn.close()
 
     return render_template("history.html",
                            logs=logs,
                            search_results=search_results,
-                           search_term=search_term)
+                           search_term=search_term,
+                           inventory_items=inventory_items)
 
 @app.route("/register", methods=["GET", "POST"])
 def register():

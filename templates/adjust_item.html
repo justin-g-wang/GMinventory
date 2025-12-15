@@ -6,13 +6,15 @@
 <form method="POST">
 
     <label>Item Number:
-        <select name="item_number" id="item_number" onchange="loadLots()" required>
+        <select name="item_number" id="item_number" onchange="handleItemChange()" required>
             <option value="">Select Item Number</option>
             {% for item in items %}
-                <option value="{{ item[0] }}">{{ item[0] }}</option>
+                <option value="{{ item[0] }}" data-name="{{ item[1] }}">{{ item[0] }} - {{ item[1] }}</option>
             {% endfor %}
         </select>
     </label><br>
+
+    <p id="item_name_display"></p>
 
     <label>Lot Number:
         <select name="lot" id="lot" onchange="loadLotInfo()" required>
@@ -26,24 +28,77 @@
         <input type="number" name="new_quantity" required>
     </label><br>
 
+    <label>New Unit:
+        <select name="unit" id="unit" required>
+            <option value="">Select Unit</option>
+            <option value="kg">kg</option>
+            <option value="g">g</option>
+            <option value="lbs">lbs</option>
+            <option value="oz">oz</option>
+            <option value="cases">cases</option>
+            <option value="bottles">bottles</option>
+            <option value="bags">bags</option>
+        </select>
+    </label><br>
+
     <button type="submit">Update Count</button>
 </form>
 
 <script>
+const unitSelect = document.getElementById("unit");
+
+function setUnitSelection(unitValue) {
+    if (!unitValue) {
+        unitSelect.value = "";
+        return;
+    }
+    const options = Array.from(unitSelect.options);
+    const match = options.find(opt => opt.value === unitValue);
+    if (!match) {
+        const newOption = new Option(unitValue, unitValue);
+        unitSelect.appendChild(newOption);
+        unitSelect.value = unitValue;
+    } else {
+        unitSelect.value = unitValue;
+    }
+}
+
+function handleItemChange() {
+    const select = document.getElementById("item_number");
+    const selectedOption = select.options[select.selectedIndex];
+    const nameDisplay = document.getElementById("item_name_display");
+
+    if (selectedOption && selectedOption.dataset.name) {
+        nameDisplay.textContent = `Item Name: ${selectedOption.dataset.name}`;
+    } else {
+        nameDisplay.textContent = "";
+    }
+
+    loadLots();
+    setUnitSelection("");
+}
 
 function loadLots() {
     const item = document.getElementById("item_number").value;
-    if (!item) return;
+    const lotMenu = document.getElementById("lot");
+    const available = document.getElementById("available");
+    if (!item) {
+        lotMenu.innerHTML = '<option value="">Select Lot</option>';
+        available.innerHTML = '<i>Select a lot to see current quantity...</i>';
+        setUnitSelection("");
+        return;
+    }
 
     fetch(`/get_lots/${item}`)
     .then(res => res.json())
     .then(data => {
-        const lotMenu = document.getElementById("lot");
         lotMenu.innerHTML = '<option value="">Select Lot</option>';
 
         data.lots.forEach(l => {
             lotMenu.innerHTML += `<option value="${l}">${l}</option>`;
         });
+        available.innerHTML = '<i>Select a lot to see current quantity...</i>';
+        setUnitSelection("");
     });
 }
 
@@ -59,6 +114,7 @@ function loadLotInfo() {
         if (data.found) {
             document.getElementById("available").innerHTML =
                 `Current: <b>${data.quantity} ${data.unit}</b>`;
+            setUnitSelection(data.unit);
         }
     });
 }
