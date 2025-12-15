@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Inventory Movement History</h2>
+
+<h3>Search by Item Number</h3>
+
+<form method="GET">
+    <input type="text" name="search" placeholder="Enter Item Number">
+    <button type="submit">Search</button>
+</form>
+
+<br>
+
+{% if search_results %}
+<h3>Results for "{{ search_term }}"</h3>
+<table>
+    <tr>
+        <th>ID</th>
+        <th>Item Number</th>
+        <th>Lot</th>
+        <th>Change</th>
+        <th>Remaining</th>
+        <th>Unit</th>
+        <th>Action</th>
+        <th>Moved By / Timestamp</th>
+    </tr>
+    {% for log in search_results %}
+    <tr>
+        <td>{{ log[0] }}</td>
+        <td>{{ log[1] }}</td>
+        <td>{{ log[2] }}</td>
+        <td>{{ log[3] }}</td>
+        <td>{{ log[4] }}</td>
+        <td>{{ log[5] }}</td>
+        <td>{{ log[6] }}</td>
+        <td>{{ log[7] }} &mdash; {{ log[8] }}</td>
+    </tr>
+    {% endfor %}
+</table>
+<br>
+{% endif %}
+
+<h3>Latest Changes</h3>
+
+<table>
+    <tr>
+        <th>ID</th>
+        <th>Item Number</th>
+        <th>Lot</th>
+        <th>Change</th>
+        <th>Remaining</th>
+        <th>Unit</th>
+        <th>Action</th>
+        <th>Moved By / Timestamp</th>
+    </tr>
+
+    {% for log in logs %}
+    <tr>
+        <td>{{ log[0] }}</td>
+        <td>{{ log[1] }}</td>
+        <td>{{ log[2] }}</td>
+        <td>{{ log[3] }}</td>
+        <td>{{ log[4] }}</td>
+        <td>{{ log[5] }}</td>
+        <td>{{ log[6] }}</td>
+        <td>{{ log[7] }} &mdash; {{ log[8] }}</td>
+    </tr>
+    {% endfor %}
+</table>
+
+{% endblock %}

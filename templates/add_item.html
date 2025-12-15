@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Add Item</h2>
+
+<form method="POST">
+
+    <label>Item Number:
+        <input type="text" name="item_number" id="item_number" onblur="fetchItemData()" oninput="debouncedFetch()" required>
+    </label><br>
+
+    <label>Name:
+        <input type="text" name="name" id="name" required>
+    </label><br>
+
+    <label>Quantity:
+        <input type="number" name="quantity" required>
+    </label>
+
+    <label>Unit:
+        <select name="unit" id="unit" required>
+            <option value="">Select Unit</option>
+            <option value="kg">kg</option>
+            <option value="g">g</option>
+            <option value="lbs">lbs</option>
+            <option value="oz">oz</option>
+            <option value="cases">cases</option>
+            <option value="bottles">bottles</option>
+            <option value="bags">bags</option>
+        </select>
+    </label><br>
+
+    <label>Lot:
+        <div id="lot_select_container" style="display:none;">
+            <select id="lot_select">
+                <option value="">Select Lot</option>
+            </select>
+        </div>
+        <input type="text" name="lot" id="lot_input" required>
+    </label><br>
+
+    <label>Manufacture Date:
+        <input type="text" name="mfg_date" id="mfg_date" required>
+    </label><br>
+
+    <label>Supplier:
+        <input type="text" name="supplier" id="supplier" required>
+    </label><br>
+
+    <label>Expiration Date:
+        <input type="text" name="exp" id="exp" required>
+    </label><br>
+
+    <button type="submit">Add</button>
+</form>
+
+<script>
+const itemNumberInput = document.getElementById("item_number");
+const lotSelectContainer = document.getElementById("lot_select_container");
+const lotSelect = document.getElementById("lot_select");
+const lotInput = document.getElementById("lot_input");
+let debounceTimer = null;
+
+function debouncedFetch() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(fetchItemData, 300);
+}
+
+function fetchItemData() {
+    const itemNumber = document.getElementById("item_number").value.trim();
+
+    if (itemNumber === "") {
+        resetFormFields();
+        document.getElementById("name").value = "";
+        return;
+    }
+
+    fetch(`/lookup_item/${itemNumber}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.found) {
+                document.getElementById("name").value = data.name;
+                document.getElementById("unit").value = data.unit;
+                document.getElementById("supplier").value = data.supplier;
+                document.getElementById("mfg_date").value = data.mfg_date;
+                document.getElementById("exp").value = data.exp;
+                loadLots(itemNumber);
+            } else {
+                resetFormFields(true);
+            }
+        });
+}
+
+function loadLots(itemNumber) {
+    fetch(`/get_lots/${itemNumber}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.lots && data.lots.length > 0) {
+                lotSelect.innerHTML = `<option value=\"\">Select Lot</option>`;
+                data.lots.forEach(lot => {
+                    const option = document.createElement("option");
+                    option.value = lot;
+                    option.textContent = lot;
+                    lotSelect.appendChild(option);
+                });
+                const newOption = document.createElement("option");
+                newOption.value = "__new__";
+                newOption.textContent = "Add New Lot";
+                lotSelect.appendChild(newOption);
+                lotSelectContainer.style.display = "block";
+                lotInput.style.display = "none";
+                lotInput.value = "";
+            } else {
+                lotSelectContainer.style.display = "none";
+                lotInput.style.display = "inline-block";
+                lotInput.value = "";
+            }
+        });
+}
+
+lotSelect.addEventListener("change", () => {
+    const selected = lotSelect.value;
+    if (selected === "__new__") {
+        lotInput.style.display = "inline-block";
+        lotInput.value = "";
+        lotInput.focus();
+    } else if (selected) {
+        lotInput.value = selected;
+        lotInput.style.display = "none";
+    } else {
+        lotInput.value = "";
+        lotInput.style.display = "none";
+    }
+});
+
+function resetFormFields(clearItemSpecific = false) {
+    if (clearItemSpecific) {
+        document.getElementById("name").value = "";
+        document.getElementById("unit").value = "";
+        document.getElementById("supplier").value = "";
+        document.getElementById("mfg_date").value = "";
+        document.getElementById("exp").value = "";
+    }
+    lotSelectContainer.style.display = "none";
+    lotSelect.innerHTML = `<option value=\"\">Select Lot</option>`;
+    lotInput.style.display = "inline-block";
+    lotInput.value = "";
+}
+</script>
+
+{% endblock %}

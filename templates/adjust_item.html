@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Adjust Inventory Count</h2>
+
+<form method="POST">
+
+    <label>Item Number:
+        <select name="item_number" id="item_number" onchange="loadLots()" required>
+            <option value="">Select Item Number</option>
+            {% for item in items %}
+                <option value="{{ item[0] }}">{{ item[0] }}</option>
+            {% endfor %}
+        </select>
+    </label><br>
+
+    <label>Lot Number:
+        <select name="lot" id="lot" onchange="loadLotInfo()" required>
+            <option value="">Select Lot</option>
+        </select>
+    </label><br>
+
+    <p id="available"><i>Select a lot to see current quantity...</i></p>
+
+    <label>New Quantity:
+        <input type="number" name="new_quantity" required>
+    </label><br>
+
+    <button type="submit">Update Count</button>
+</form>
+
+<script>
+
+function loadLots() {
+    const item = document.getElementById("item_number").value;
+    if (!item) return;
+
+    fetch(`/get_lots/${item}`)
+    .then(res => res.json())
+    .then(data => {
+        const lotMenu = document.getElementById("lot");
+        lotMenu.innerHTML = '<option value="">Select Lot</option>';
+
+        data.lots.forEach(l => {
+            lotMenu.innerHTML += `<option value="${l}">${l}</option>`;
+        });
+    });
+}
+
+function loadLotInfo() {
+    const item = document.getElementById("item_number").value;
+    const lot = document.getElementById("lot").value;
+
+    if (!item || !lot) return;
+
+    fetch(`/lot_info/${item}/${lot}`)
+    .then(res => res.json())
+    .then(data => {
+        if (data.found) {
+            document.getElementById("available").innerHTML =
+                `Current: <b>${data.quantity} ${data.unit}</b>`;
+        }
+    });
+}
+
+</script>
+
+{% endblock %}

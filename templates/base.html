@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Inventory System</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+    <nav>
+        {% if session.user %}
+<nav>
+    <a href="/current">Current Inventory</a>
+    <a href="/add">Add Item</a>
+    <a href="/remove">Remove Item</a>
+    <a href="/adjust">Adjust Inventory</a>
+    <a href="/history">History</a>
+    <a href="/logout">Logout ({{ session.user }})</a>
+</nav>
+{% endif %}
+
+    </nav>
+    
+
+<div class="container">
+    {% block content %}{% endblock %}
+</div>
+
+</body>
+</html>
