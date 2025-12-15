@@ -5,7 +5,10 @@
     <div>
         <h2>Projects</h2>
     </div>
-    <a class="button-link" href="/projects/new">Add Project</a>
+    <div class="header-buttons">
+        <a class="button-link" href="/projects/new">Add Project</a>
+        <a class="button-link secondary" href="/dashboard/history">View Updates</a>
+    </div>
 </div>
 
 <div class="dashboard-grid">
@@ -136,7 +139,6 @@
 document.querySelectorAll(".status-form").forEach(form => {
     const select = form.querySelector(".status-select");
     const extra = form.querySelector(".complete-extra");
-
     const toggleExtra = () => {
         if (select.value === "Completed") {
             extra.classList.remove("hidden");
@@ -144,9 +146,16 @@ document.querySelectorAll(".status-form").forEach(form => {
             extra.classList.add("hidden");
         }
     };
-
     toggleExtra();
     select.addEventListener("change", toggleExtra);
+
+    const projectId = form.querySelector("input[name='project_id']").value;
+
+    form.addEventListener("submit", (event) => {
+        if (select.value === "Completed") {
+            sessionStorage.setItem("confetti_project", projectId);
+        }
+    });
 });
 
 document.querySelectorAll(".edit-toggle").forEach(button => {
@@ -155,6 +164,28 @@ document.querySelectorAll(".edit-toggle").forEach(button => {
         form.classList.toggle("hidden");
     });
 });
+
+const projectToCelebrate = sessionStorage.getItem("confetti_project");
+if (projectToCelebrate) {
+    if (window.confetti) {
+        confetti({
+            particleCount: 200,
+            spread: 80,
+            origin: { y: 0.6 }
+        });
+        confetti({
+            particleCount: 120,
+            spread: 80,
+            origin: { x: 0.2, y: 0.7 }
+        });
+        confetti({
+            particleCount: 120,
+            spread: 80,
+            origin: { x: 0.8, y: 0.7 }
+        });
+    }
+    sessionStorage.removeItem("confetti_project");
+}
 </script>
 
 {% endblock %}

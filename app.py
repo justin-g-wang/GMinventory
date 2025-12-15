@@ -30,6 +30,12 @@ def to_int_or_none(value):
     except (TypeError, ValueError):
         return None
 
+def log_dashboard_event(cursor, message, username=None):
+    cursor.execute(
+        "INSERT INTO dashboard_history (message, username) VALUES (%s, %s)",
+        (message, username),
+    )
+
 def send_low_stock_email(item_number, lot, remaining_qty, unit, item_name, supplier, triggered_by):
     """Send a notification when inventory dips below threshold."""
     recipient = os.getenv("LOW_STOCK_EMAIL", "jwang@gummymaker.us")
@@ -190,6 +196,15 @@ def init_db():
         )
     """)
 
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS dashboard_history (
+            id SERIAL PRIMARY KEY,
+            message TEXT,
+            username TEXT,
+            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -260,6 +275,11 @@ def dashboard():
                 """,
                 (name, notes, due_date, bags_bottles, gummies, storage_status, quantity_unit, completed_bags),
             )
+            log_dashboard_event(
+                c,
+                f"Created project '{name}' targeting {bags_bottles or 0} {quantity_unit}, due {due_date or 'unspecified'}",
+                session.get("user"),
+            )
             conn.commit()
             conn.close()
             return redirect("/dashboard")
@@ -281,6 +301,9 @@ def dashboard():
             except (TypeError, ValueError):
                 conn.close()
                 return "Invalid project id."
+            c.execute("SELECT name FROM projects WHERE id = %s", (project_id_int,))
+            project_row = c.fetchone()
+            project_name = project_row[0] if project_row else f"#{project_id_int}"
 
             if status == "Completed":
                 c.execute(
@@ -301,6 +324,11 @@ def dashboard():
                     """,
                     (status, project_id_int),
                 )
+            log_dashboard_event(
+                c,
+                f"Marked project '{project_name}' as {status}",
+                session.get("user"),
+            )
             conn.commit()
             conn.close()
             return redirect("/dashboard")
@@ -335,6 +363,10 @@ def dashboard():
                 return "Invalid project id."
 
             c.execute(
+                "SELECT name FROM projects WHERE id = %s",
+                (project_id_int,),
+            )
+            c.execute(
                 """
                 UPDATE projects
                 SET name = %s,
@@ -359,6 +391,11 @@ def dashboard():
                     project_id_int,
                 ),
             )
+            log_dashboard_event(
+                c,
+                f"Edited project '{name}': quantity {bags_bottles or 0} {quantity_unit}, produced {completed_bags or 0}, due {due_date or 'N/A'}",
+                session.get("user"),
+            )
             conn.commit()
             conn.close()
             return redirect("/dashboard")
@@ -370,7 +407,11 @@ def dashboard():
             except (TypeError, ValueError):
                 conn.close()
                 return "Invalid project id."
+            c.execute("SELECT name FROM projects WHERE id = %s", (project_id_int,))
+            project_row = c.fetchone()
+            project_name = project_row[0] if project_row else f"#{project_id_int}"
             c.execute("DELETE FROM projects WHERE id = %s", (project_id_int,))
+            log_dashboard_event(c, f"Deleted project '{project_name}'", session.get("user"))
             conn.commit()
             conn.close()
             return redirect("/dashboard")
@@ -481,6 +522,31 @@ def completed_projects_view():
 
     return render_template("completed_projects.html", completed_projects=projects)
 
+@app.route("/dashboard/history")
+@login_required
+def dashboard_history():
+    conn = connect_db()
+    c = conn.cursor()
+    c.execute(
+        """
+        SELECT message, username, created_at
+        FROM dashboard_history
+        ORDER BY created_at DESC
+        LIMIT 50
+        """
+    )
+    rows = c.fetchall()
+    conn.close()
+    entries = [
+        {
+            "message": row[0],
+            "username": row[1],
+            "timestamp": format_timestamp_pst(row[2]),
+        }
+        for row in rows
+    ]
+    return render_template("dashboard_history.html", entries=entries)
+
 @app.route("/projects/new", methods=["GET", "POST"])
 @login_required
 def new_project():
@@ -513,6 +579,11 @@ def new_project():
                 """,
                 (name, notes, due_date, bags_bottles, gummies, storage_status, quantity_unit, completed_bags),
             )
+        log_dashboard_event(
+            c,
+            f"Created project '{name}' targeting {bags_bottles or 0} {quantity_unit}, due {due_date or 'unspecified'}",
+            session.get("user"),
+        )
         conn.commit()
         conn.close()
         return redirect("/dashboard")

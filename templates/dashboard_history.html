@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="form-card">
+    <h2>Dashboard Updates</h2>
+    {% if entries %}
+        <ul class="history-list">
+            {% for entry in entries %}
+            <li>
+                <div>{{ entry.message }}</div>
+                <div class="muted">{{ entry.timestamp }}{% if entry.username %} — {{ entry.username }}{% endif %}</div>
+            </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p class="muted">No updates yet.</p>
+    {% endif %}
+    <div class="history-actions">
+        <a class="button-link" href="/dashboard">Back to Projects</a>
+    </div>
+</div>
+
+{% endblock %}
