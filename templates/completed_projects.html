@@ -29,7 +29,7 @@
                     <br><strong>Produced:</strong> {{ project.completed_bags|comma }} {{ project.quantity_unit or 'units' }}
                 {% endif %}
                 {% if project.storage_status %}
-                    <br><strong>Status:</strong> {{ project.storage_status }}
+                    <br><strong>Storage Type:</strong> {{ project.storage_status }}
                 {% endif %}
                 {% if project.description %}
                     <br>{{ project.description }}

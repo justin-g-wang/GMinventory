@@ -5,12 +5,15 @@
 
 <table>
     <tr>
-        <th>Item Number</th>
-        <th>Name</th>
+        <th>
+            <a href="/current?sort=item_number&direction={{ 'desc' if sort_direction != 'desc' or sort_column != 'item_number' else 'asc' }}">Item Number</a>
+        </th>
+        <th>
+            <a href="/current?sort=name&direction={{ 'desc' if sort_direction != 'desc' or sort_column != 'name' else 'asc' }}">Name</a>
+        </th>
         <th>Quantity</th>
         <th>Unit</th>
         <th>Lot</th>
-        <th>MFG Date</th>
         <th>Supplier</th>
         <th>EXP</th>
     </tr>
@@ -24,7 +27,6 @@
         <td>{{ item[4] }}</td>
         <td>{{ item[5] }}</td>
         <td>{{ item[6] }}</td>
-        <td>{{ item[7] }}</td>
     </tr>
     {% endfor %}
 </table>

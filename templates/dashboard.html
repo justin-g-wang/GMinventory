@@ -51,7 +51,7 @@
                         </div>
                     {% endif %}
                     {% if project.storage_status %}
-                        <br><strong>Status:</strong> {{ project.storage_status }}
+                        <br><strong>Storage Type:</strong> {{ project.storage_status }}
                     {% endif %}
                     {% if project.description %}
                         <br>{{ project.description }}
@@ -87,10 +87,11 @@
                     <label>Produced Quantity
                         <input type="number" name="completed_bags" value="{{ project.completed_bags }}">
                     </label>
-                    <label>Storage Status
+                    <label>Storage Type
                         <select name="storage_status">
-                            <option value="Stored" {% if project.storage_status == "Stored" %}selected{% endif %}>Stored</option>
-                            <option value="Shipped Out" {% if project.storage_status == "Shipped Out" %}selected{% endif %}>Shipped Out</option>
+                            <option value="Pick" {% if project.storage_status == "Pick" %}selected{% endif %}>Pick</option>
+                            <option value="Pack" {% if project.storage_status == "Pack" %}selected{% endif %}>Pack</option>
+                            <option value="Ship" {% if project.storage_status == "Ship" %}selected{% endif %}>Ship</option>
                         </select>
                     </label>
                     <label>Notes

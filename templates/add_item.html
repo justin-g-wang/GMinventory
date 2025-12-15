@@ -26,8 +26,8 @@
         </label>
 
         <div class="inline-fields">
-            <label>Quantity
-                <input type="number" name="quantity" required>
+        <label>Quantity
+            <input type="number" name="quantity" step="0.0001" required>
             </label>
 
             <label>Unit
@@ -53,16 +53,12 @@
             <input type="text" name="lot" id="lot_input" required>
         </label>
 
-        <label>Manufacture Date
-            <input type="month" name="mfg_date" id="mfg_date" required>
-        </label>
-
-        <label>Supplier
-            <input type="text" name="supplier" id="supplier" required>
-        </label>
+       <label>Supplier
+           <input type="text" name="supplier" id="supplier">
+       </label>
 
         <label>Expiration Date
-            <input type="month" name="exp" id="exp" required>
+            <input type="date" name="exp" id="exp" required>
         </label>
 
         <button type="submit">Add</button>
@@ -120,7 +116,6 @@ function fetchItemData() {
                 document.getElementById("name").value = data.name;
                 document.getElementById("unit").value = data.unit;
                 document.getElementById("supplier").value = data.supplier;
-                document.getElementById("mfg_date").value = data.mfg_date;
                 document.getElementById("exp").value = data.exp;
                 loadLots(itemNumber);
             } else {
@@ -182,7 +177,6 @@ function resetFormFields(clearItemSpecific = false) {
         document.getElementById("name").value = "";
         document.getElementById("unit").value = "";
         document.getElementById("supplier").value = "";
-        document.getElementById("mfg_date").value = "";
         document.getElementById("exp").value = "";
     }
     lotSelectContainer.style.display = "none";

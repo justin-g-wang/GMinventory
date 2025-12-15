@@ -144,10 +144,9 @@ def init_db():
         CREATE TABLE IF NOT EXISTS inventory (
             item_number TEXT NOT NULL,
             name TEXT,
-            quantity INTEGER,
+            quantity NUMERIC,
             unit TEXT,
             lot TEXT NOT NULL,
-            mfg_date TEXT,
             supplier TEXT,
             exp TEXT,
             PRIMARY KEY (item_number, lot)
@@ -160,8 +159,8 @@ def init_db():
             id SERIAL PRIMARY KEY,
             item_number TEXT,
             lot TEXT,
-            change INTEGER,
-            remaining INTEGER,
+            change NUMERIC,
+            remaining NUMERIC,
             unit TEXT,
             action_type TEXT,
             username TEXT,
@@ -253,7 +252,7 @@ def dashboard():
             bags_bottles = to_int_or_none(request.form.get("bags_bottles"))
             gummies = to_int_or_none(request.form.get("gummies"))
             quantity_unit = request.form.get("quantity_unit", "Bags")
-            storage_status = request.form.get("storage_status", "Stored")
+            storage_status = request.form.get("storage_status", "Pick")
             completed_bags = to_int_or_none(request.form.get("completed_bags"))
 
             if not name:
@@ -339,7 +338,7 @@ def dashboard():
             description = request.form.get("description", "").strip()
             bags_bottles = to_int_or_none(request.form.get("bags_bottles"))
             gummies = to_int_or_none(request.form.get("gummies"))
-            storage_status = request.form.get("storage_status", "Stored")
+            storage_status = request.form.get("storage_status", "Pick")
             quantity_unit = request.form.get("quantity_unit", "Bags")
             completed_bags = to_int_or_none(request.form.get("completed_bags"))
             due_date_str = request.form.get("due_date", "").strip()
@@ -556,7 +555,7 @@ def new_project():
         due_date_str = request.form.get("due_date", "").strip()
         bags_bottles = to_int_or_none(request.form.get("bags_bottles"))
         gummies = to_int_or_none(request.form.get("gummies"))
-        storage_status = request.form.get("storage_status", "Stored")
+        storage_status = request.form.get("storage_status", "Pick")
         quantity_unit = request.form.get("quantity_unit", "Bags")
         completed_bags = to_int_or_none(request.form.get("completed_bags"))
 
@@ -595,10 +594,19 @@ def new_project():
 def current_inventory():
     conn = connect_db()
     c = conn.cursor()
-    c.execute("SELECT * FROM inventory ORDER BY item_number, lot")
+    order = request.args.get("sort", "item_number")
+    direction = request.args.get("direction", "asc").lower()
+    valid_columns = {"item_number": "item_number", "name": "name"}
+    column = valid_columns.get(order, "item_number")
+    direction_sql = "DESC" if direction == "desc" else "ASC"
+    c.execute(f"""
+        SELECT item_number, name, quantity, unit, lot, supplier, exp
+        FROM inventory
+        ORDER BY {column} {direction_sql}, lot
+    """)
     items = c.fetchall()
     conn.close()
-    return render_template("current_inventory.html", items=items)
+    return render_template("current_inventory.html", items=items, sort_column=column, sort_direction=direction_sql.lower())
 
 @app.route("/add", methods=["GET", "POST"])
 @login_required
@@ -606,11 +614,10 @@ def add_item():
     if request.method == "POST":
         item_number = request.form["item_number"]
         name = request.form["name"]
-        quantity = int(request.form["quantity"])
+        quantity = float(request.form["quantity"])
         unit = request.form["unit"]
         lot = request.form["lot"]
-        mfg_date = request.form["mfg_date"]
-        supplier = request.form["supplier"]
+        supplier = request.form.get("supplier") or ""
         exp = request.form["exp"]
 
         conn = connect_db()
@@ -619,18 +626,17 @@ def add_item():
         # insert into current inventory table (upsert by item + lot)
         c.execute(
             """
-            INSERT INTO inventory (item_number, name, quantity, unit, lot, mfg_date, supplier, exp)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO inventory (item_number, name, quantity, unit, lot, supplier, exp)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT(item_number, lot)
             DO UPDATE SET
                 name = excluded.name,
                 unit = excluded.unit,
-                mfg_date = excluded.mfg_date,
                 supplier = excluded.supplier,
                 exp = excluded.exp,
                 quantity = inventory.quantity + excluded.quantity
             """,
-            (item_number, name, quantity, unit, lot, mfg_date, supplier, exp),
+            (item_number, name, quantity, unit, lot, supplier, exp),
         )
         c.execute(
             """
@@ -791,7 +797,7 @@ def lookup_item(item_number):
     conn = connect_db()
     c = conn.cursor()
     c.execute("""
-        SELECT item_number, name, unit, supplier, mfg_date, exp
+        SELECT item_number, name, unit, supplier, exp
         FROM inventory WHERE item_number = %s
     """, (item_number,))
     row = c.fetchone()
@@ -804,8 +810,7 @@ def lookup_item(item_number):
             "name": row[1],
             "unit": row[2],
             "supplier": row[3],
-            "mfg_date": row[4],
-            "exp": row[5]
+            "exp": row[4]
         }
     else:
         return {"found": False}
