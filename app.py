@@ -1,72 +1,103 @@
-from flask import Flask, render_template, request, redirect, session
-from werkzeug.security import generate_password_hash, check_password_hash
-import sqlite3
+import os
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+from flask import Flask, render_template, request, redirect, session
+from werkzeug.security import generate_password_hash, check_password_hash
+import psycopg2
+from psycopg2 import sql, errorcodes
+
 app = Flask(__name__)
 app.secret_key = "575GummyMaker123"  
-
 
 PST_ZONE = ZoneInfo("America/Los_Angeles")
 # -------------------------
 # DATABASE SETUP
 # -------------------------
 def connect_db():
-    return sqlite3.connect("inventory.db")
+    db_url = os.getenv("DATABASE_URL") or os.getenv("POSTGRES_URL")
+    if db_url:
+        return psycopg2.connect(db_url)
+
+    db_params = dict(
+        host=os.getenv("POSTGRES_HOST", "localhost"),
+        port=os.getenv("POSTGRES_PORT", "5432"),
+        dbname=os.getenv("POSTGRES_DB", "gummy_inventory"),
+        user=os.getenv("POSTGRES_USER", "postgres"),
+        password=os.getenv("POSTGRES_PASSWORD", "postgres"),
+    )
+
+    try:
+        return psycopg2.connect(**db_params)
+    except psycopg2.OperationalError as exc:
+        if _is_missing_database_error(exc):
+            create_database_if_missing(db_params)
+            return psycopg2.connect(**db_params)
+        raise
+
+def _is_missing_database_error(exc):
+    if getattr(exc, "pgcode", None) == errorcodes.INVALID_CATALOG_NAME:
+        return True
+    message = (getattr(exc, "pgerror", None) or str(exc) or "").lower()
+    return "does not exist" in message
+
+def create_database_if_missing(db_params):
+    """Create the target database if it does not exist."""
+    target_db = db_params["dbname"]
+    admin_db = os.getenv("POSTGRES_DEFAULT_DB", "postgres")
+    admin_params = db_params.copy()
+    admin_params["dbname"] = admin_db
+
+    admin_conn = psycopg2.connect(**admin_params)
+    admin_conn.autocommit = True
+    try:
+        with admin_conn.cursor() as cursor:
+            cursor.execute("SELECT 1 FROM pg_database WHERE datname = %s", (target_db,))
+            if cursor.fetchone():
+                return
+            cursor.execute(
+                sql.SQL("CREATE DATABASE {}").format(sql.Identifier(target_db))
+            )
+    finally:
+        admin_conn.close()
 
 def format_timestamp_pst(ts):
-    """Convert UTC timestamp string from SQLite into PST display text."""
+    """Convert timestamp (string or datetime) into PST display text."""
     if not ts:
         return ts
-    try:
-        dt = datetime.fromisoformat(ts)
-    except ValueError:
-        return ts
-    dt = dt.replace(tzinfo=ZoneInfo("UTC"))
+    if isinstance(ts, str):
+        try:
+            dt = datetime.fromisoformat(ts)
+        except ValueError:
+            return ts
+    else:
+        dt = ts
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=ZoneInfo("UTC"))
     return dt.astimezone(PST_ZONE).strftime("%Y-%m-%d %I:%M %p %Z")
 
 def init_db():
     conn = connect_db()
     c = conn.cursor()
 
-    def create_inventory_table():
-        c.execute("""
-            CREATE TABLE IF NOT EXISTS inventory (
-                item_number TEXT NOT NULL,
-                name TEXT,
-                quantity INTEGER,
-                unit TEXT,
-                lot TEXT NOT NULL,
-                mfg_date TEXT,
-                supplier TEXT,
-                exp TEXT,
-                PRIMARY KEY (item_number, lot)
-            )
-        """)
-
-    c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='inventory'")
-    if c.fetchone():
-        c.execute("PRAGMA table_info(inventory)")
-        columns = [row[1] for row in c.fetchall()]
-        if "id" in columns:
-            c.execute("ALTER TABLE inventory RENAME TO inventory_old")
-            create_inventory_table()
-            c.execute("""
-                INSERT INTO inventory (item_number, name, quantity, unit, lot, mfg_date, supplier, exp)
-                SELECT item_number, name, quantity, unit, lot, mfg_date, supplier, exp
-                FROM inventory_old
-            """)
-            c.execute("DROP TABLE inventory_old")
-        else:
-            create_inventory_table()
-    else:
-        create_inventory_table()
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS inventory (
+            item_number TEXT NOT NULL,
+            name TEXT,
+            quantity INTEGER,
+            unit TEXT,
+            lot TEXT NOT NULL,
+            mfg_date TEXT,
+            supplier TEXT,
+            exp TEXT,
+            PRIMARY KEY (item_number, lot)
+        )
+    """)
 
     # MOVEMENT HISTORY TABLE
     c.execute("""
         CREATE TABLE IF NOT EXISTS history (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             item_number TEXT,
             lot TEXT,
             change INTEGER,
@@ -74,7 +105,7 @@ def init_db():
             unit TEXT,
             action_type TEXT,
             username TEXT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
         )
     """)
 
@@ -82,7 +113,7 @@ def init_db():
     # USERS TABLE
     c.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             username TEXT UNIQUE,
             password TEXT
         )
@@ -150,7 +181,7 @@ def add_item():
         c.execute(
             """
             INSERT INTO inventory (item_number, name, quantity, unit, lot, mfg_date, supplier, exp)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT(item_number, lot)
             DO UPDATE SET
                 name = excluded.name,
@@ -165,7 +196,7 @@ def add_item():
         c.execute(
             """
             SELECT quantity FROM inventory
-            WHERE item_number = ? AND lot = ?
+            WHERE item_number = %s AND lot = %s
             """,
             (item_number, lot),
         )
@@ -175,7 +206,7 @@ def add_item():
         #inserts into history
         c.execute("""
         INSERT INTO history (item_number, lot, change, remaining, unit, action_type, username)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
         """, (item_number, lot, quantity, remaining_qty, unit, "ADD", session["user"]))
 
         conn.commit()
@@ -205,7 +236,7 @@ def remove_item():
         # Get current quantity + unit for that lot
         c.execute("""
             SELECT quantity, unit FROM inventory 
-            WHERE item_number = ? AND lot = ?
+            WHERE item_number = %s AND lot = %s
         """, (item_number, lot))
         row = c.fetchone()
 
@@ -224,14 +255,14 @@ def remove_item():
         new_qty = current_qty - qty_remove
         c.execute("""
             UPDATE inventory 
-            SET quantity = ?
-            WHERE item_number = ? AND lot = ?
+            SET quantity = %s
+            WHERE item_number = %s AND lot = %s
         """, (new_qty, item_number, lot))
 
         # Log to history
         c.execute("""
             INSERT INTO history (item_number, lot, change, remaining, unit, action_type, username)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             """, (item_number, lot, -qty_remove, new_qty, unit, "REMOVE", session["user"]))
 
         conn.commit()
@@ -263,7 +294,7 @@ def adjust_item():
         # Get current quantity + unit
         c.execute("""
             SELECT quantity, unit FROM inventory
-            WHERE item_number = ? AND lot = ?
+            WHERE item_number = %s AND lot = %s
         """, (item_number, lot))
         row = c.fetchone()
 
@@ -275,15 +306,15 @@ def adjust_item():
 
         # Update inventory
         c.execute("""
-            UPDATE inventory SET quantity = ?, unit = ?
-            WHERE item_number = ? AND lot = ?
+            UPDATE inventory SET quantity = %s, unit = %s
+            WHERE item_number = %s AND lot = %s
         """, (new_quantity, new_unit, item_number, lot))
 
         # Log to history
         change = new_quantity - old_quantity
         c.execute("""
         INSERT INTO history (item_number, lot, change, remaining, unit, action_type, username)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
         """, (item_number, lot, change, new_quantity, new_unit, "ADJUST", session["user"]))
 
         conn.commit()
@@ -301,7 +332,7 @@ def lookup_item(item_number):
     c = conn.cursor()
     c.execute("""
         SELECT item_number, name, unit, supplier, mfg_date, exp
-        FROM inventory WHERE item_number = ?
+        FROM inventory WHERE item_number = %s
     """, (item_number,))
     row = c.fetchone()
     conn.close()
@@ -324,7 +355,7 @@ def lookup_item(item_number):
 def get_lots(item_number):
     conn = connect_db()
     c = conn.cursor()
-    c.execute("SELECT lot FROM inventory WHERE item_number = ?", (item_number,))
+    c.execute("SELECT lot FROM inventory WHERE item_number = %s", (item_number,))
     lots = [row[0] for row in c.fetchall()]
     conn.close()
 
@@ -338,7 +369,7 @@ def lot_info(item, lot):
     c.execute("""
         SELECT quantity, unit 
         FROM inventory
-        WHERE item_number = ? AND lot = ?
+        WHERE item_number = %s AND lot = %s
     """, (item, lot))
     row = c.fetchone()
     conn.close()
@@ -370,7 +401,7 @@ def history():
 
     search_results = None
     if search_term:
-        c.execute("SELECT * FROM history WHERE item_number = ? ORDER BY timestamp DESC",
+        c.execute("SELECT * FROM history WHERE item_number = %s ORDER BY timestamp DESC",
                   (search_term,))
         search_results = [
             (*row[:8], format_timestamp_pst(row[8]))
@@ -396,10 +427,11 @@ def register():
         conn = connect_db()
         c = conn.cursor()
         try:
-            c.execute("INSERT INTO users (username, password) VALUES (?, ?)", 
+            c.execute("INSERT INTO users (username, password) VALUES (%s, %s)", 
                       (username, password))
             conn.commit()
-        except sqlite3.IntegrityError:
+        except psycopg2.IntegrityError:
+            conn.rollback()
             conn.close()
             return "Username already taken."
 
@@ -416,7 +448,7 @@ def login():
 
         conn = connect_db()
         c = conn.cursor()
-        c.execute("SELECT * FROM users WHERE username = ?", (username,))
+        c.execute("SELECT * FROM users WHERE username = %s", (username,))
         user = c.fetchone()
         conn.close()
 
