@@ -18,6 +18,7 @@ app.secret_key = "575GummyMaker123"
 
 PST_ZONE = ZoneInfo("America/Los_Angeles")
 LOW_STOCK_THRESHOLD = int(os.getenv("LOW_STOCK_THRESHOLD", "50"))
+MAILERSEND_BULK_BATCH_SIZE = max(1, int(os.getenv("MAILERSEND_BULK_BATCH_SIZE", "1")))
 EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 @app.template_filter("comma")
@@ -39,14 +40,30 @@ def log_dashboard_event(cursor, message, username=None):
         (message, username),
     )
 
+def _parse_recipients(value):
+    if not value:
+        return []
+    return [email.strip() for email in value.split(",") if email.strip()]
+
+
+def _load_low_stock_recipients():
+    configured = _parse_recipients(os.getenv("LOW_STOCK_EMAILS"))
+    if configured:
+        return configured
+    fallback = _parse_recipients(os.getenv("LOW_STOCK_EMAIL"))
+    if fallback:
+        return fallback
+    return ["jwang@gummymaker.us", "brandon121511@gmail.com"]
+
+
 def send_low_stock_email(item_number, lot, remaining_qty, unit, item_name, supplier, triggered_by):
     """Send a notification when inventory dips below threshold."""
-    recipient = os.getenv("LOW_STOCK_EMAIL", "jwang@gummymaker.us")
+    recipients = _load_low_stock_recipients()
     api_key = os.getenv("MAILERSEND_API_KEY")
     sender_email = os.getenv("MAILERSEND_FROM_EMAIL")
     sender_name = os.getenv("MAILERSEND_FROM_NAME", "Gummy Maker Inventory")
 
-    if not (api_key and sender_email and recipient):
+    if not (api_key and sender_email and recipients):
         app.logger.warning("Low-stock email skipped: MailerSend env vars missing.")
         return
 
@@ -62,26 +79,44 @@ def send_low_stock_email(item_number, lot, remaining_qty, unit, item_name, suppl
 
     try:
         mailer = MailerSendClient(api_key=api_key)
-        email_request = (
-            EmailBuilder()
-            .from_email(sender_email, sender_name)
-            .to(recipient, recipient)
-            .reply_to(sender_email, sender_name)
-            .subject(subject)
-            .html(html_body)
-            .text(plaintext_body)
-            .build()
-        )
-        response = mailer.emails.send(email_request)
-        app.logger.info(
-            "Mailersend accepted alert for %s lot %s (remaining %s %s) id=%s status=%s",
-            item_number,
-            lot,
-            remaining_qty,
-            unit,
-            response.get("id"),
-            response.status_code,
-        )
+        email_requests = []
+        for i in range(0, len(recipients), MAILERSEND_BULK_BATCH_SIZE):
+            chunk = recipients[i : i + MAILERSEND_BULK_BATCH_SIZE]
+            builder = (
+                EmailBuilder()
+                .from_email(sender_email, sender_name)
+                .reply_to(sender_email, sender_name)
+                .subject(subject)
+                .html(html_body)
+                .text(plaintext_body)
+            )
+            for email in chunk:
+                builder.to(email, email)
+            email_requests.append(builder.build())
+
+        if len(email_requests) == 1:
+            response = mailer.emails.send(email_requests[0])
+            app.logger.info(
+                "Mailersend accepted alert for %s lot %s (remaining %s %s) recipients=%s id=%s status=%s",
+                item_number,
+                lot,
+                remaining_qty,
+                unit,
+                recipients,
+                response.get("id"),
+                response.status_code,
+            )
+        else:
+            response = mailer.emails.send_bulk(email_requests)
+            app.logger.info(
+                "Mailersend accepted bulk alert for %s lot %s (remaining %s %s) batches=%s status=%s",
+                item_number,
+                lot,
+                remaining_qty,
+                unit,
+                len(email_requests),
+                response.status_code,
+            )
     except MailerSendError as exc:
         app.logger.error("Mailersend API error: %s", exc)
     except Exception as exc:
