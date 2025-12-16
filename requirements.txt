@@ -9,3 +9,5 @@ psycopg2-binary==2.9.11
 scrypt==0.9.4
 Werkzeug==3.1.4
 zipp==3.23.0
+python-dotenv==1.2.1
+mailersend==2.0.0

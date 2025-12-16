@@ -39,6 +39,7 @@
 </div>
 
 <script>
+const inventoryData = {{ inventory_map|tojson }};
 let currentAvailability = null;
 const unitDisplay = document.getElementById("unit_display");
 
@@ -59,48 +60,40 @@ function handleItemChange() {
 function loadLots() {
     const item = document.getElementById("item_number").value;
     const lotMenu = document.getElementById("lot");
-    if (!item) {
-        lotMenu.innerHTML = '<option value="">Select Lot</option>';
+    const entry = inventoryData[item];
+
+    lotMenu.innerHTML = '<option value="">Select Lot</option>';
+    if (!item || !entry) {
         document.getElementById("available").innerHTML = '<i>Select a lot to view availability...</i>';
         currentAvailability = null;
         unitDisplay.value = "";
         return;
     }
 
-    fetch(`/get_lots/${item}`)
-    .then(res => res.json())
-    .then(data => {
-        lotMenu.innerHTML = '<option value="">Select Lot</option>';
-
-        data.lots.forEach(l => {
-            lotMenu.innerHTML += `<option value="${l}">${l}</option>`;
-        });
-        unitDisplay.value = "";
-        currentAvailability = null;
+    Object.keys(entry.lots).forEach(lot => {
+        lotMenu.innerHTML += `<option value="${lot}">${lot}</option>`;
     });
+    unitDisplay.value = "";
+    currentAvailability = null;
 }
 
 function loadLotInfo() {
     const item = document.getElementById("item_number").value;
     const lot = document.getElementById("lot").value;
+    const entry = inventoryData[item];
 
-    if (!item || !lot) {
+    if (!item || !lot || !entry || !entry.lots[lot]) {
         unitDisplay.value = "";
         document.getElementById("available").innerHTML = '<i>Select a lot to view availability...</i>';
         currentAvailability = null;
         return;
     }
 
-    fetch(`/lot_info/${item}/${lot}`)
-    .then(res => res.json())
-    .then(data => {
-        if (data.found) {
-            document.getElementById("available").innerHTML =
-                `Available: <b>${data.quantity} ${data.unit}</b>`;
-            currentAvailability = data;
-            unitDisplay.value = data.unit || "";
-        }
-    });
+    const data = entry.lots[lot];
+    document.getElementById("available").innerHTML =
+        `Available: <b>${data.quantity} ${data.unit || ''}</b>`;
+    currentAvailability = data;
+    unitDisplay.value = data.unit || "";
 }
 
 document.getElementById("remove_form").addEventListener("submit", (event) => {

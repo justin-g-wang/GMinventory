@@ -1,18 +1,24 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h2>Create an Account</h2>
+<div class="auth-wrapper">
+    <div class="auth-card">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="Gummy Maker logo" class="auth-logo">
+        <h2>Create an Account</h2>
+        <p class="muted">Join the dashboard to manage projects and inventory.</p>
+        <form method="POST" class="auth-form">
+            <label>Email
+                <input type="email" name="username" required>
+            </label>
 
-<form method="POST">
-    <label>Email (will be your username):
-        <input type="email" name="username" required>
-    </label><br>
+            <label>Password
+                <input type="password" name="password" required>
+            </label>
 
-    <label>Password:
-        <input type="password" name="password" required>
-    </label><br>
-
-    <button type="submit">Register</button>
-</form>
+            <button type="submit" class="button-link full-width">Create Account</button>
+        </form>
+        <p class="auth-footer">Already have an account? <a href="/login">Sign in</a></p>
+    </div>
+</div>
 
 {% endblock %}

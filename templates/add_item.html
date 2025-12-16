@@ -18,7 +18,7 @@
         {% endif %}
 
         <label>Item Number
-            <input type="text" name="item_number" id="item_number" onblur="fetchItemData()" oninput="debouncedFetch()" required>
+            <input type="text" name="item_number" id="item_number" required>
         </label>
 
         <label>Name
@@ -66,12 +66,16 @@
 </div>
 
 <script>
+const inventoryData = {{ inventory_map|tojson }};
 const itemNumberInput = document.getElementById("item_number");
+const nameInput = document.getElementById("name");
+const unitSelect = document.getElementById("unit");
+const supplierInput = document.getElementById("supplier");
+const expInput = document.getElementById("exp");
 const lotSelectContainer = document.getElementById("lot_select_container");
 const lotSelect = document.getElementById("lot_select");
 const lotInput = document.getElementById("lot_input");
 const existingItemSelect = document.getElementById("existing_items");
-let debounceTimer = null;
 
 function showLotInput() {
     lotInput.style.display = "inline-block";
@@ -83,76 +87,65 @@ function hideLotInput() {
     lotInput.required = false;
 }
 
+function populateLots(lots) {
+    if (lots && lots.length > 0) {
+        lotSelect.innerHTML = `<option value="">Select Lot</option>`;
+        lots.forEach(lot => {
+            const option = document.createElement("option");
+            option.value = lot;
+            option.textContent = lot;
+            lotSelect.appendChild(option);
+        });
+        const newOption = document.createElement("option");
+        newOption.value = "__new__";
+        newOption.textContent = "Add New Lot";
+        lotSelect.appendChild(newOption);
+        lotSelectContainer.style.display = "block";
+        lotSelect.required = true;
+        hideLotInput();
+        lotInput.value = "";
+        lotSelect.value = "";
+    } else {
+        lotSelectContainer.style.display = "none";
+        lotSelect.required = false;
+        showLotInput();
+        lotInput.value = "";
+    }
+}
+
+function applyInventoryData(itemNumber) {
+    const data = inventoryData[itemNumber];
+    if (!data) {
+        resetFormFields(true);
+        return;
+    }
+    nameInput.value = data.name || "";
+    if (data.unit) unitSelect.value = data.unit;
+    supplierInput.value = data.supplier || "";
+    if (data.exp) expInput.value = data.exp;
+    populateLots(data.lots || []);
+}
+
 if (existingItemSelect) {
     existingItemSelect.addEventListener("change", () => {
         const selected = existingItemSelect.value;
         itemNumberInput.value = selected;
         if (selected) {
-            fetchItemData();
+            applyInventoryData(selected);
         } else {
             resetFormFields(true);
         }
     });
 }
 
-function debouncedFetch() {
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(fetchItemData, 300);
-}
-
-function fetchItemData() {
-    const itemNumber = document.getElementById("item_number").value.trim();
-
-    if (itemNumber === "") {
-        resetFormFields();
-        document.getElementById("name").value = "";
-        return;
+itemNumberInput.addEventListener("input", () => {
+    const value = itemNumberInput.value.trim();
+    if (value) {
+        applyInventoryData(value);
+    } else {
+        resetFormFields(true);
     }
-
-    fetch(`/lookup_item/${itemNumber}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.found) {
-                document.getElementById("name").value = data.name;
-                document.getElementById("unit").value = data.unit;
-                document.getElementById("supplier").value = data.supplier;
-                document.getElementById("exp").value = data.exp;
-                loadLots(itemNumber);
-            } else {
-                resetFormFields(true);
-            }
-        });
-}
-
-function loadLots(itemNumber) {
-    fetch(`/get_lots/${itemNumber}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.lots && data.lots.length > 0) {
-                lotSelect.innerHTML = `<option value=\"\">Select Lot</option>`;
-                data.lots.forEach(lot => {
-                    const option = document.createElement("option");
-                    option.value = lot;
-                    option.textContent = lot;
-                    lotSelect.appendChild(option);
-                });
-                const newOption = document.createElement("option");
-                newOption.value = "__new__";
-                newOption.textContent = "Add New Lot";
-                lotSelect.appendChild(newOption);
-                lotSelectContainer.style.display = "block";
-                lotSelect.required = true;
-                hideLotInput();
-                lotInput.value = "";
-                lotSelect.value = "";
-            } else {
-                lotSelectContainer.style.display = "none";
-                lotSelect.required = false;
-                showLotInput();
-                lotInput.value = "";
-            }
-        });
-}
+});
 
 lotSelect.addEventListener("change", () => {
     const selected = lotSelect.value;
@@ -174,13 +167,13 @@ lotSelect.addEventListener("change", () => {
 
 function resetFormFields(clearItemSpecific = false) {
     if (clearItemSpecific) {
-        document.getElementById("name").value = "";
-        document.getElementById("unit").value = "";
-        document.getElementById("supplier").value = "";
-        document.getElementById("exp").value = "";
+        nameInput.value = "";
+        unitSelect.value = "";
+        supplierInput.value = "";
+        expInput.value = "";
     }
     lotSelectContainer.style.display = "none";
-    lotSelect.innerHTML = `<option value=\"\">Select Lot</option>`;
+    lotSelect.innerHTML = `<option value="">Select Lot</option>`;
     lotSelect.required = false;
     showLotInput();
     lotInput.value = "";

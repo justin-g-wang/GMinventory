@@ -1,17 +1,20 @@
 import os
 import re
+from dotenv import load_dotenv
 from datetime import datetime, date
 from zoneinfo import ZoneInfo
-import smtplib
-from email.message import EmailMessage
+from mailersend import MailerSendClient, EmailBuilder, MailerSendError
 
 from flask import Flask, render_template, request, redirect, session
 from werkzeug.security import generate_password_hash, check_password_hash
 import psycopg2
 from psycopg2 import sql, errorcodes
 
+load_dotenv()
+
+
 app = Flask(__name__)
-app.secret_key = "575GummyMaker123"  
+app.secret_key = "575GummyMaker123"
 
 PST_ZONE = ZoneInfo("America/Los_Angeles")
 LOW_STOCK_THRESHOLD = int(os.getenv("LOW_STOCK_THRESHOLD", "50"))
@@ -39,37 +42,50 @@ def log_dashboard_event(cursor, message, username=None):
 def send_low_stock_email(item_number, lot, remaining_qty, unit, item_name, supplier, triggered_by):
     """Send a notification when inventory dips below threshold."""
     recipient = os.getenv("LOW_STOCK_EMAIL", "jwang@gummymaker.us")
-    host = os.getenv("SMTP_HOST")
-    username = os.getenv("SMTP_USERNAME")
-    password = os.getenv("SMTP_PASSWORD")
-    sender = os.getenv("SMTP_SENDER") or username
-    port = int(os.getenv("SMTP_PORT", "587"))
-    use_tls = os.getenv("SMTP_USE_TLS", "true").lower() not in ("0", "false", "no")
+    api_key = os.getenv("MAILERSEND_API_KEY")
+    sender_email = os.getenv("MAILERSEND_FROM_EMAIL")
+    sender_name = os.getenv("MAILERSEND_FROM_NAME", "Gummy Maker Inventory")
 
-    if not (host and username and password and sender):
-        print("Low-stock email skipped: SMTP settings incomplete.")
+    if not (api_key and sender_email and recipient):
+        app.logger.warning("Low-stock email skipped: MailerSend env vars missing.")
         return
 
     subject = f"Low Stock Alert: {item_name or item_number}"
     headline = f"LOW STOCK ON ITEM {item_name or item_number} ORDER FROM {supplier or 'supplier'}"
     details = f"Item {item_number} (lot {lot}) now has {remaining_qty} {unit} remaining."
-    body = f"{headline}\n{details}\n\nTriggered by: {triggered_by or 'system'}"
-
-    message = EmailMessage()
-    message["Subject"] = subject
-    message["From"] = sender
-    message["To"] = recipient
-    message.set_content(body)
+    plaintext_body = f"{headline}\n{details}\n\nTriggered by: {triggered_by or 'system'}"
+    html_body = (
+        f"<p><strong>{headline}</strong></p>"
+        f"<p>{details}</p>"
+        f"<p>Triggered by: {triggered_by or 'system'}</p>"
+    )
 
     try:
-        with smtplib.SMTP(host, port, timeout=10) as smtp:
-            if use_tls:
-                smtp.starttls()
-            smtp.login(username, password)
-            smtp.send_message(message)
-        print(f"Low-stock email sent for {item_number} lot {lot}.")
+        mailer = MailerSendClient(api_key=api_key)
+        email_request = (
+            EmailBuilder()
+            .from_email(sender_email, sender_name)
+            .to(recipient, recipient)
+            .reply_to(sender_email, sender_name)
+            .subject(subject)
+            .html(html_body)
+            .text(plaintext_body)
+            .build()
+        )
+        response = mailer.emails.send(email_request)
+        app.logger.info(
+            "Mailersend accepted alert for %s lot %s (remaining %s %s) id=%s status=%s",
+            item_number,
+            lot,
+            remaining_qty,
+            unit,
+            response.get("id"),
+            response.status_code,
+        )
+    except MailerSendError as exc:
+        app.logger.error("Mailersend API error: %s", exc)
     except Exception as exc:
-        print(f"Low-stock email failed: {exc}")
+        app.logger.error("Mailersend request failed: %s", exc)
 
 # -------------------------
 # DATABASE SETUP
@@ -661,21 +677,37 @@ def add_item():
 
     conn = connect_db()
     c = conn.cursor()
-    c.execute("SELECT DISTINCT item_number, name FROM inventory ORDER BY item_number")
-    items = c.fetchall()
+    c.execute("""
+        SELECT item_number, name, unit, supplier, exp, lot
+        FROM inventory
+        ORDER BY item_number, lot
+    """)
+    rows = c.fetchall()
     conn.close()
 
-    return render_template("add_item.html", items=items)
+    inventory_map = {}
+    for item_number, name, unit, supplier, exp, lot in rows:
+        entry = inventory_map.setdefault(
+            item_number,
+            {"name": name, "unit": unit, "supplier": supplier, "exp": exp, "lots": []},
+        )
+        if not entry["name"] and name:
+            entry["name"] = name
+        if not entry["unit"] and unit:
+            entry["unit"] = unit
+        if not entry["supplier"] and supplier:
+            entry["supplier"] = supplier
+        if not entry["exp"] and exp:
+            entry["exp"] = exp
+        entry["lots"].append(lot)
+
+    items = [(item_num, inventory_map[item_num]["name"]) for item_num in sorted(inventory_map.keys())]
+
+    return render_template("add_item.html", items=items, inventory_map=inventory_map)
 
 @app.route("/remove", methods=["GET", "POST"])
 @login_required
 def remove_item():
-    conn = connect_db()
-    c = conn.cursor()
-    c.execute("SELECT DISTINCT item_number, name FROM inventory")
-    items = c.fetchall()
-    conn.close()
-
     if request.method == "POST":
         item_number = request.form["item_number"]
         lot = request.form["lot"]
@@ -720,6 +752,14 @@ def remove_item():
         conn.close()
 
         if new_qty < LOW_STOCK_THRESHOLD:
+            app.logger.info(
+                "Threshold triggered for %s lot %s. Remaining %s %s (limit %s)",
+                item_number,
+                lot,
+                new_qty,
+                unit,
+                LOW_STOCK_THRESHOLD,
+            )
             send_low_stock_email(
                 item_number,
                 lot,
@@ -732,7 +772,26 @@ def remove_item():
 
         return redirect("/current")
 
-    return render_template("remove_item.html", items=items)
+    conn = connect_db()
+    c = conn.cursor()
+    c.execute("SELECT DISTINCT item_number, name FROM inventory ORDER BY item_number")
+    items = c.fetchall()
+    c.execute(
+        """
+        SELECT item_number, name, lot, quantity, unit
+        FROM inventory
+        ORDER BY item_number, lot
+        """
+    )
+    rows = c.fetchall()
+    conn.close()
+
+    inventory_map = {}
+    for item_number, name, lot, quantity, unit in rows:
+        entry = inventory_map.setdefault(item_number, {"name": name, "lots": {}})
+        entry["lots"][lot] = {"quantity": float(quantity or 0), "unit": unit}
+
+    return render_template("remove_item.html", items=items, inventory_map=inventory_map)
 
 
 @app.route("/adjust", methods=["GET", "POST"])
@@ -903,7 +962,8 @@ def register():
             return "Username already taken."
 
         conn.close()
-        return redirect("/login")
+        session["user"] = username
+        return redirect("/dashboard")
 
     return render_template("register.html")
 

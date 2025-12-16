@@ -1,20 +1,24 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h2>Login</h2>
+<div class="auth-wrapper">
+    <div class="auth-card">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="Gummy Maker logo" class="auth-logo">
+        <h2>Welcome Back</h2>
+        <p class="muted">Sign in to manage your inventory.</p>
+        <form method="POST" class="auth-form">
+            <label>Email
+                <input type="email" name="username" required>
+            </label>
 
-<form method="POST">
-    <label>Email:
-        <input type="email" name="username" required>
-    </label><br>
+            <label>Password
+                <input type="password" name="password" required>
+            </label>
 
-    <label>Password:
-        <input type="password" name="password" required>
-    </label><br>
-
-    <button type="submit">Login</button>
-</form>
-
-<p>Don't have an account? <a href="/register">Register here</a></p>
+            <button type="submit" class="button-link full-width">Login</button>
+        </form>
+        <p class="auth-footer">Don't have an account? <a href="/register">Register here</a></p>
+    </div>
+</div>
 
 {% endblock %}
