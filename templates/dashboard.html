@@ -164,16 +164,18 @@ document.querySelectorAll(".edit-toggle").forEach(button => {
 function launchGummyRain() {
     const container = document.createElement("div");
     container.className = "gummy-rain";
-    const flavors = ["🍓", "🍋", "🍏", "🍇", "🍊", "🍍", "🍉"];
-    const totalPieces = 40;
+    const totalPieces = 42;
 
     for (let i = 0; i < totalPieces; i++) {
         const piece = document.createElement("span");
         piece.className = "gummy-rain__piece";
-        piece.textContent = flavors[Math.floor(Math.random() * flavors.length)];
+        const size = 26 + Math.random() * 14;
+        piece.style.width = `${size}px`;
+        piece.style.height = `${size * 1.15}px`;
         piece.style.left = `${Math.random() * 100}%`;
-        piece.style.animationDelay = `${Math.random() * 1.5}s`;
-        piece.style.animationDuration = `${3 + Math.random() * 1.5}s`;
+        piece.style.animationDelay = `${Math.random() * 1.2}s`;
+        piece.style.animationDuration = `${3.2 + Math.random() * 1.2}s`;
+        piece.style.filter = `hue-rotate(${(Math.random() - 0.5) * 12}deg) saturate(1.1)`;
         container.appendChild(piece);
     }
 
