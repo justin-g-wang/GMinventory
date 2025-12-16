@@ -7,12 +7,12 @@
     <form method="POST" id="remove_form">
 
         <label>Item Number
-            <select name="item_number" id="item_number" onchange="handleItemChange()" required>
-                <option value="">Select Item Number</option>
+            <input list="item_number_list" name="item_number" id="item_number" placeholder="Type or select item number" required>
+            <datalist id="item_number_list">
                 {% for item in items %}
-                    <option value="{{ item[0] }}" data-name="{{ item[1] }}">{{ item[0] }} - {{ item[1] }}</option>
+                    <option value="{{ item[0] }}">{{ item[0] }} - {{ item[1] }}</option>
                 {% endfor %}
-            </select>
+            </datalist>
         </label>
 
         <p id="item_name_display" class="form-note"></p>
@@ -42,23 +42,20 @@
 const inventoryData = {{ inventory_map|tojson }};
 let currentAvailability = null;
 const unitDisplay = document.getElementById("unit_display");
+const itemInput = document.getElementById("item_number");
 
 function handleItemChange() {
-    const select = document.getElementById("item_number");
-    const selectedOption = select.options[select.selectedIndex];
+    const value = itemInput.value.trim();
+    const entry = inventoryData[value];
     const nameDisplay = document.getElementById("item_name_display");
 
-    if (selectedOption && selectedOption.dataset.name) {
-        nameDisplay.textContent = `Item Name: ${selectedOption.dataset.name}`;
-    } else {
-        nameDisplay.textContent = "";
-    }
+    nameDisplay.textContent = entry && entry.name ? `Item Name: ${entry.name}` : "";
 
     loadLots();
 }
 
 function loadLots() {
-    const item = document.getElementById("item_number").value;
+    const item = itemInput.value.trim();
     const lotMenu = document.getElementById("lot");
     const entry = inventoryData[item];
 
@@ -78,7 +75,7 @@ function loadLots() {
 }
 
 function loadLotInfo() {
-    const item = document.getElementById("item_number").value;
+    const item = itemInput.value.trim();
     const lot = document.getElementById("lot").value;
     const entry = inventoryData[item];
 
@@ -105,6 +102,7 @@ document.getElementById("remove_form").addEventListener("submit", (event) => {
         alert(`Cannot remove ${qty} ${currentAvailability.unit}. Only ${currentAvailability.quantity} ${currentAvailability.unit} available.`);
     }
 });
+itemInput.addEventListener("input", handleItemChange);
 
 </script>
 

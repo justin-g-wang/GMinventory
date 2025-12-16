@@ -45,12 +45,16 @@
         </div>
 
         <label>Lot
-            <div id="lot_select_container" style="display:none;">
+            <div id="lot_select_container" class="form-note" style="display:none;">
                 <select id="lot_select">
-                    <option value="">Select Lot</option>
+                    <option value="">Select Existing Lot</option>
                 </select>
+                <button type="button" id="lot_show_manual" class="link-button">Enter new lot</button>
             </div>
-            <input type="text" name="lot" id="lot_input" required>
+            <div id="lot_input_container">
+                <input type="text" name="lot" id="lot_input" placeholder="Enter lot number" required>
+                <button type="button" id="lot_show_existing" class="link-button" style="display:none;">Use existing lot</button>
+            </div>
         </label>
 
        <label>Supplier
@@ -75,40 +79,46 @@ const expInput = document.getElementById("exp");
 const lotSelectContainer = document.getElementById("lot_select_container");
 const lotSelect = document.getElementById("lot_select");
 const lotInput = document.getElementById("lot_input");
+const lotInputContainer = document.getElementById("lot_input_container");
+const lotShowManualBtn = document.getElementById("lot_show_manual");
+const lotShowExistingBtn = document.getElementById("lot_show_existing");
 const existingItemSelect = document.getElementById("existing_items");
 
-function showLotInput() {
-    lotInput.style.display = "inline-block";
-    lotInput.required = true;
-}
-
-function hideLotInput() {
-    lotInput.style.display = "none";
-    lotInput.required = false;
-}
-
 function populateLots(lots) {
-    if (lots && lots.length > 0) {
-        lotSelect.innerHTML = `<option value="">Select Lot</option>`;
+    const hasLots = lots && lots.length > 0;
+    lotSelectContainer.dataset.hasLots = hasLots ? "1" : "0";
+    if (hasLots) {
+        lotSelect.innerHTML = `<option value="">Select Existing Lot</option>`;
         lots.forEach(lot => {
             const option = document.createElement("option");
             option.value = lot;
             option.textContent = lot;
             lotSelect.appendChild(option);
         });
-        const newOption = document.createElement("option");
-        newOption.value = "__new__";
-        newOption.textContent = "Add New Lot";
-        lotSelect.appendChild(newOption);
-        lotSelectContainer.style.display = "block";
-        lotSelect.required = true;
-        hideLotInput();
-        lotInput.value = "";
-        lotSelect.value = "";
+        showExistingLotSelect();
+        lotShowExistingBtn.style.display = "inline";
     } else {
+        lotSelect.innerHTML = `<option value="">Select Existing Lot</option>`;
         lotSelectContainer.style.display = "none";
-        lotSelect.required = false;
-        showLotInput();
+        lotShowExistingBtn.style.display = "none";
+        showManualLotInput(false);
+    }
+}
+
+function showExistingLotSelect() {
+    lotSelectContainer.style.display = "block";
+    lotInputContainer.style.display = "none";
+    lotInput.required = false;
+    lotSelect.required = true;
+}
+
+function showManualLotInput(clearValue = true) {
+    lotSelect.value = "";
+    lotSelect.required = false;
+    lotInputContainer.style.display = "block";
+    lotInput.required = true;
+    lotSelectContainer.style.display = "none";
+    if (clearValue) {
         lotInput.value = "";
     }
 }
@@ -124,6 +134,7 @@ function applyInventoryData(itemNumber) {
     supplierInput.value = data.supplier || "";
     if (data.exp) expInput.value = data.exp;
     populateLots(data.lots || []);
+    lotInput.value = "";
 }
 
 if (existingItemSelect) {
@@ -149,19 +160,18 @@ itemNumberInput.addEventListener("input", () => {
 
 lotSelect.addEventListener("change", () => {
     const selected = lotSelect.value;
-    if (selected === "__new__") {
-        showLotInput();
-        lotSelect.required = false;
-        lotInput.value = "";
-        lotInput.focus();
-    } else if (selected) {
+    if (selected) {
         lotInput.value = selected;
-        hideLotInput();
-        lotSelect.required = true;
-    } else {
-        lotInput.value = "";
-        hideLotInput();
-        lotSelect.required = true;
+    }
+});
+
+lotShowManualBtn.addEventListener("click", () => {
+    showManualLotInput(true);
+});
+
+lotShowExistingBtn.addEventListener("click", () => {
+    if (lotSelectContainer.dataset.hasLots === "1") {
+        showExistingLotSelect();
     }
 });
 
@@ -173,9 +183,10 @@ function resetFormFields(clearItemSpecific = false) {
         expInput.value = "";
     }
     lotSelectContainer.style.display = "none";
-    lotSelect.innerHTML = `<option value="">Select Lot</option>`;
-    lotSelect.required = false;
-    showLotInput();
+    lotSelect.innerHTML = `<option value="">Select Existing Lot</option>`;
+    lotInputContainer.style.display = "block";
+    lotShowExistingBtn.style.display = "none";
+    lotInput.required = true;
     lotInput.value = "";
 }
 </script>

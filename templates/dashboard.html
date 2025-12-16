@@ -99,23 +99,17 @@
                     <label>Due Date
                         <input type="date" name="due_date" value="{{ project.due_date }}">
                     </label>
-                    <button type="submit">Save Changes</button>
-                </form>
-                <form method="POST" class="status-form" data-project-id="{{ project.id }}">
-                    <input type="hidden" name="action" value="update_status">
-                    <input type="hidden" name="project_id" value="{{ project.id }}">
                     <div class="status-form__controls">
-                        <label>
-                            Status
+                        <label>Status
                             <select name="status" class="status-select">
                                 <option value="Pending" {% if project.status == "Pending" %}selected{% endif %}>Pending</option>
                                 <option value="In Progress" {% if project.status == "In Progress" %}selected{% endif %}>In Progress</option>
                                 <option value="Completed" {% if project.status == "Completed" %}selected{% endif %}>Completed</option>
                             </select>
                         </label>
-                        <div class="complete-extra hidden">
+                        <div class="complete-extra {% if project.status != 'Completed' %}hidden{% endif %}">
                             <label>Completion Date
-                                <input type="date" name="completion_date">
+                                <input type="date" name="completion_date" value="{{ project.completed_on }}">
                             </label>
                         </div>
                     </div>
@@ -136,23 +130,25 @@
 </div>
 
 <script>
-document.querySelectorAll(".status-form").forEach(form => {
-    const select = form.querySelector(".status-select");
+document.querySelectorAll(".edit-form").forEach(form => {
+    const statusSelect = form.querySelector(".status-select");
     const extra = form.querySelector(".complete-extra");
-    const toggleExtra = () => {
-        if (select.value === "Completed") {
-            extra.classList.remove("hidden");
-        } else {
-            extra.classList.add("hidden");
-        }
-    };
-    toggleExtra();
-    select.addEventListener("change", toggleExtra);
-
     const projectId = form.querySelector("input[name='project_id']").value;
 
-    form.addEventListener("submit", (event) => {
-        if (select.value === "Completed") {
+    if (statusSelect && extra) {
+        const toggleExtra = () => {
+            if (statusSelect.value === "Completed") {
+                extra.classList.remove("hidden");
+            } else {
+                extra.classList.add("hidden");
+            }
+        };
+        toggleExtra();
+        statusSelect.addEventListener("change", toggleExtra);
+    }
+
+    form.addEventListener("submit", () => {
+        if (statusSelect && statusSelect.value === "Completed") {
             sessionStorage.setItem("confetti_project", projectId);
         }
     });

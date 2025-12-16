@@ -3,13 +3,32 @@
 
 <h2>Current Inventory</h2>
 
+<form method="GET" class="inventory-search">
+    <input type="hidden" name="sort" value="{{ sort_column }}">
+    <input type="hidden" name="direction" value="{{ sort_direction }}">
+    <input
+        type="text"
+        name="search"
+        placeholder="Search by item number or name"
+        value="{{ search_term }}"
+    >
+    <button type="submit">Search</button>
+    {% if search_term %}
+    <a class="clear-button" href="{{ url_for('current_inventory') }}">Clear</a>
+    {% endif %}
+</form>
+
 <table>
     <tr>
         <th>
-            <a href="/current?sort=item_number&direction={{ 'desc' if sort_direction != 'desc' or sort_column != 'item_number' else 'asc' }}">Item Number</a>
+            <a href="{{ url_for('current_inventory', sort='item_number', direction='desc' if sort_direction != 'desc' or sort_column != 'item_number' else 'asc', search=search_term) }}">
+                Item Number
+            </a>
         </th>
         <th>
-            <a href="/current?sort=name&direction={{ 'desc' if sort_direction != 'desc' or sort_column != 'name' else 'asc' }}">Name</a>
+            <a href="{{ url_for('current_inventory', sort='name', direction='desc' if sort_direction != 'desc' or sort_column != 'name' else 'asc', search=search_term) }}">
+                Name
+            </a>
         </th>
         <th>Quantity</th>
         <th>Unit</th>

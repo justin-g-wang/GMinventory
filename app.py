@@ -40,6 +40,23 @@ def log_dashboard_event(cursor, message, username=None):
         (message, username),
     )
 
+def _format_history_rows(rows):
+    formatted = []
+    for row in rows:
+        formatted.append({
+            "id": row[0],
+            "item_number": row[1],
+            "lot": row[2],
+            "change": row[3],
+            "remaining": row[4],
+            "unit": row[5],
+            "action_type": row[6],
+            "username": row[7],
+            "timestamp": format_timestamp_pst(row[8]),
+            "item_name": row[9],
+        })
+    return formatted
+
 def _parse_recipients(value):
     if not value:
         return []
@@ -303,7 +320,7 @@ def dashboard():
             bags_bottles = to_int_or_none(request.form.get("bags_bottles"))
             gummies = to_int_or_none(request.form.get("gummies"))
             quantity_unit = request.form.get("quantity_unit", "Bags")
-            storage_status = request.form.get("storage_status", "Pick")
+            storage_status = request.form.get("storage_status", "PPS")
             completed_bags = to_int_or_none(request.form.get("completed_bags"))
 
             if not name:
@@ -355,25 +372,16 @@ def dashboard():
             project_row = c.fetchone()
             project_name = project_row[0] if project_row else f"#{project_id_int}"
 
-            if status == "Completed":
-                c.execute(
-                    """
-                    UPDATE projects
-                    SET status = %s,
-                        completed_on = %s
-                    WHERE id = %s
-                    """,
-                    (status, completion_date, project_id_int),
-                )
-            else:
-                c.execute(
-                    """
-                    UPDATE projects
-                    SET status = %s
-                    WHERE id = %s
-                    """,
-                    (status, project_id_int),
-                )
+            completed_on_value = completion_date if status == "Completed" else None
+            c.execute(
+                """
+                UPDATE projects
+                SET status = %s,
+                    completed_on = %s
+                WHERE id = %s
+                """,
+                (status, completed_on_value, project_id_int),
+            )
             log_dashboard_event(
                 c,
                 f"Marked project '{project_name}' as {status}",
@@ -389,10 +397,12 @@ def dashboard():
             description = request.form.get("description", "").strip()
             bags_bottles = to_int_or_none(request.form.get("bags_bottles"))
             gummies = to_int_or_none(request.form.get("gummies"))
-            storage_status = request.form.get("storage_status", "Pick")
+            storage_status = request.form.get("storage_status", "PPS")
             quantity_unit = request.form.get("quantity_unit", "Bags")
             completed_bags = to_int_or_none(request.form.get("completed_bags"))
             due_date_str = request.form.get("due_date", "").strip()
+            status = request.form.get("status", "Pending")
+            completion_date_str = request.form.get("completion_date", "").strip()
 
             if not name:
                 conn.close()
@@ -405,6 +415,15 @@ def dashboard():
                 except ValueError:
                     conn.close()
                     return "Invalid due date."
+
+            completion_date = None
+            if completion_date_str:
+                try:
+                    completion_date = datetime.strptime(completion_date_str, "%Y-%m-%d").date()
+                except ValueError:
+                    conn.close()
+                    return "Invalid completion date."
+            completed_on_value = completion_date if status == "Completed" else None
 
             try:
                 project_id_int = int(project_id)
@@ -426,7 +445,9 @@ def dashboard():
                     gummies = %s,
                     storage_status = %s,
                     quantity_unit = %s,
-                    completed_bags = %s
+                    completed_bags = %s,
+                    status = %s,
+                    completed_on = %s
                 WHERE id = %s
                 """,
                 (
@@ -438,12 +459,14 @@ def dashboard():
                     storage_status,
                     quantity_unit,
                     completed_bags,
+                    status,
+                    completed_on_value,
                     project_id_int,
                 ),
             )
             log_dashboard_event(
                 c,
-                f"Edited project '{name}': quantity {bags_bottles or 0} {quantity_unit}, produced {completed_bags or 0}, due {due_date or 'N/A'}",
+                f"Updated project '{name}': status {status}, quantity {bags_bottles or 0} {quantity_unit}, produced {completed_bags or 0}, due {due_date or 'N/A'}",
                 session.get("user"),
             )
             conn.commit()
@@ -647,17 +670,33 @@ def current_inventory():
     c = conn.cursor()
     order = request.args.get("sort", "item_number")
     direction = request.args.get("direction", "asc").lower()
+    search_term = request.args.get("search", "").strip()
     valid_columns = {"item_number": "item_number", "name": "name"}
     column = valid_columns.get(order, "item_number")
     direction_sql = "DESC" if direction == "desc" else "ASC"
-    c.execute(f"""
+    base_query = f"""
         SELECT item_number, name, quantity, unit, lot, supplier, exp
         FROM inventory
-        ORDER BY {column} {direction_sql}, lot
-    """)
+    """
+    params = []
+    if search_term:
+        base_query += " WHERE item_number ILIKE %s OR name ILIKE %s"
+        like = f"%{search_term}%"
+        params.extend([like, like])
+    base_query += f" ORDER BY {column} {direction_sql}, lot"
+    if params:
+        c.execute(base_query, params)
+    else:
+        c.execute(base_query)
     items = c.fetchall()
     conn.close()
-    return render_template("current_inventory.html", items=items, sort_column=column, sort_direction=direction_sql.lower())
+    return render_template(
+        "current_inventory.html",
+        items=items,
+        sort_column=column,
+        sort_direction=direction_sql.lower(),
+        search_term=search_term,
+    )
 
 @app.route("/add", methods=["GET", "POST"])
 @login_required
@@ -951,21 +990,30 @@ def history():
     c.execute("SELECT DISTINCT item_number, name FROM inventory ORDER BY item_number")
     inventory_items = c.fetchall()
 
-    # Full history
-    c.execute("SELECT * FROM history ORDER BY timestamp DESC")
-    logs = [
-        (*row[:8], format_timestamp_pst(row[8]))
-        for row in c.fetchall()
-    ]
+    c.execute("""
+        SELECT h.id, h.item_number, h.lot, h.change, h.remaining,
+               h.unit, h.action_type, h.username, h.timestamp,
+               i.name
+        FROM history h
+        LEFT JOIN inventory i
+          ON h.item_number = i.item_number AND h.lot = i.lot
+        ORDER BY h.timestamp DESC
+    """)
+    logs = _format_history_rows(c.fetchall())
 
     search_results = None
     if search_term:
-        c.execute("SELECT * FROM history WHERE item_number = %s ORDER BY timestamp DESC",
-                  (search_term,))
-        search_results = [
-            (*row[:8], format_timestamp_pst(row[8]))
-            for row in c.fetchall()
-        ]
+        c.execute("""
+            SELECT h.id, h.item_number, h.lot, h.change, h.remaining,
+                   h.unit, h.action_type, h.username, h.timestamp,
+                   i.name
+            FROM history h
+            LEFT JOIN inventory i
+              ON h.item_number = i.item_number AND h.lot = i.lot
+            WHERE h.item_number = %s
+            ORDER BY h.timestamp DESC
+        """, (search_term,))
+        search_results = _format_history_rows(c.fetchall())
 
     conn.close()
 
