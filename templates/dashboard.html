@@ -161,25 +161,31 @@ document.querySelectorAll(".edit-toggle").forEach(button => {
     });
 });
 
+function launchGummyRain() {
+    const container = document.createElement("div");
+    container.className = "gummy-rain";
+    const flavors = ["🍓", "🍋", "🍏", "🍇", "🍊", "🍍", "🍉"];
+    const totalPieces = 40;
+
+    for (let i = 0; i < totalPieces; i++) {
+        const piece = document.createElement("span");
+        piece.className = "gummy-rain__piece";
+        piece.textContent = flavors[Math.floor(Math.random() * flavors.length)];
+        piece.style.left = `${Math.random() * 100}%`;
+        piece.style.animationDelay = `${Math.random() * 1.5}s`;
+        piece.style.animationDuration = `${3 + Math.random() * 1.5}s`;
+        container.appendChild(piece);
+    }
+
+    document.body.appendChild(container);
+    setTimeout(() => {
+        container.remove();
+    }, 6000);
+}
+
 const projectToCelebrate = sessionStorage.getItem("confetti_project");
 if (projectToCelebrate) {
-    if (window.confetti) {
-        confetti({
-            particleCount: 200,
-            spread: 80,
-            origin: { y: 0.6 }
-        });
-        confetti({
-            particleCount: 120,
-            spread: 80,
-            origin: { x: 0.2, y: 0.7 }
-        });
-        confetti({
-            particleCount: 120,
-            spread: 80,
-            origin: { x: 0.8, y: 0.7 }
-        });
-    }
+    launchGummyRain();
     sessionStorage.removeItem("confetti_project");
 }
 </script>
