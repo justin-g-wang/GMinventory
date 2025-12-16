@@ -22,6 +22,16 @@ MAILERSEND_BULK_BATCH_SIZE = max(1, int(os.getenv("MAILERSEND_BULK_BATCH_SIZE", 
 EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 DEFAULT_ALERT_RECIPIENTS = ["jwang@gummymaker.us", "brandon121511@gmail.com"]
 
+def _low_stock_threshold_for_unit(unit):
+    if not unit:
+        return LOW_STOCK_THRESHOLD
+    normalized = unit.lower()
+    if normalized in {"g", "gram", "grams"}:
+        return 1000
+    if normalized in {"kg", "kilogram", "kilograms"}:
+        return 50
+    return LOW_STOCK_THRESHOLD
+
 @app.template_filter("comma")
 def format_comma(value):
     try:
@@ -864,14 +874,15 @@ def remove_item():
 
         maybe_send_expiration_email(item_number, lot, exp_value, item_name, supplier)
 
-        if new_qty < LOW_STOCK_THRESHOLD:
+        threshold = _low_stock_threshold_for_unit(unit)
+        if new_qty < threshold:
             app.logger.info(
                 "Threshold triggered for %s lot %s. Remaining %s %s (limit %s)",
                 item_number,
                 lot,
                 new_qty,
                 unit,
-                LOW_STOCK_THRESHOLD,
+                threshold,
             )
             send_low_stock_email(
                 item_number,
