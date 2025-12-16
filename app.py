@@ -4,7 +4,6 @@ from dotenv import load_dotenv
 from datetime import datetime, date
 from zoneinfo import ZoneInfo
 from mailersend import MailerSendClient, EmailBuilder, MailerSendError
-from threading import Lock
 
 from flask import Flask, render_template, request, redirect, session
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -312,24 +311,7 @@ def init_db():
     conn.commit()
     conn.close()
 
-_tables_lock = Lock()
-_tables_initialized = False
-
-def ensure_tables():
-    global _tables_initialized
-    if _tables_initialized:
-        return
-    with _tables_lock:
-        if _tables_initialized:
-            return
-        init_db()
-        _tables_initialized = True
-
-ensure_tables()
-
-@app.before_request
-def _ensure_tables_before_request():
-    ensure_tables()
+init_db()
 
 def login_required(route_function):
     def wrapper(*args, **kwargs):
