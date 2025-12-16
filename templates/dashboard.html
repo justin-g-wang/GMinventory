@@ -89,9 +89,8 @@
                     </label>
                     <label>Storage Type
                         <select name="storage_status">
-                            <option value="Pick" {% if project.storage_status == "Pick" %}selected{% endif %}>Pick</option>
-                            <option value="Pack" {% if project.storage_status == "Pack" %}selected{% endif %}>Pack</option>
-                            <option value="Ship" {% if project.storage_status == "Ship" %}selected{% endif %}>Ship</option>
+                            <option value="PPS" {% if project.storage_status == "PPS" %}selected{% endif %}>PPS</option>
+                            <option value="Shipped Out" {% if project.storage_status == "Shipped Out" %}selected{% endif %}>Shipped Out</option>
                         </select>
                     </label>
                     <label>Notes
