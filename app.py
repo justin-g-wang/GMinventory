@@ -923,7 +923,7 @@ def login():
 
         if user and check_password_hash(user[2], password):
             session["user"] = username
-            return redirect("/current")   # << send user to inventory page
+            return redirect("/dashboard")   
         else:
             return "Invalid username or password."
 
