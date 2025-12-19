@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="dashboard-header">
+    <div>
+        <h2>Project Ingredients</h2>
+        <p class="muted">
+            {{ project.name }}
+            {% if project.customer_name %} — {{ project.customer_name }}{% endif %}
+        </p>
+    </div>
+    <a href="/dashboard" class="button-link">Back to Dashboard</a>
+</div>
+
+<div class="form-card">
+    <h2>Add Ingredient</h2>
+    <form method="POST">
+        <input type="hidden" name="action" value="add">
+        <label>Item Number
+            <input list="item_number_list" name="item_number" id="item_number" required>
+            <datalist id="item_number_list">
+                {% for item in items %}
+                    <option value="{{ item[0] }}">{{ item[0] }}{% if item[1] %} - {{ item[1] }}{% endif %}</option>
+                {% endfor %}
+            </datalist>
+        </label>
+        <label>Item Name (optional)
+            <input type="text" name="item_name" id="item_name">
+        </label>
+        <div class="inline-fields">
+            <label>Quantity
+                <input type="number" name="quantity" step="0.0001" min="0.0001" required>
+            </label>
+            <label>Unit
+                <input type="text" name="unit" id="unit" required>
+            </label>
+        </div>
+        <input type="hidden" name="stage" value="Allocated">
+        <label>Lot Number
+            <input list="lot_list" name="lot" id="lot">
+            <datalist id="lot_list"></datalist>
+        </label>
+        <label>Notes
+            <textarea name="notes" rows="3"></textarea>
+        </label>
+        <button type="submit">Add Ingredient</button>
+    </form>
+</div>
+
+{% if ingredients %}
+<table>
+    <thead>
+        <tr>
+            <th>Item</th>
+            <th>Qty</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for ingredient in ingredients %}
+        <tr>
+            <td>
+                {{ ingredient.item_number }}{% if ingredient.item_name %} - {{ ingredient.item_name }}{% endif %}
+            </td>
+            <td>{{ ingredient.quantity }} {{ ingredient.unit or "" }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="muted">No ingredients linked yet.</p>
+{% endif %}
+
+<script>
+const inventoryData = {{ inventory_map|tojson }};
+const allocatedData = {{ allocated_map|tojson }};
+const itemInput = document.getElementById("item_number");
+const nameInput = document.getElementById("item_name");
+const lotInput = document.getElementById("lot");
+const unitInput = document.getElementById("unit");
+const lotList = document.getElementById("lot_list");
+
+function updateLotOptions() {
+    const item = itemInput.value.trim();
+    const entry = inventoryData[item];
+    lotList.innerHTML = "";
+    if (!entry || !entry.lots) {
+        if (nameInput && entry && entry.name) {
+            nameInput.value = entry.name;
+        }
+        return;
+    }
+    if (nameInput && entry.name) {
+        nameInput.value = entry.name;
+    }
+    Object.keys(entry.lots).forEach(lot => {
+        const option = document.createElement("option");
+        option.value = lot;
+        lotList.appendChild(option);
+    });
+}
+
+function updateAvailability() {
+    const item = itemInput.value.trim();
+    const lot = lotInput.value.trim();
+    const entry = inventoryData[item];
+    if (!item || !lot || !entry || !entry.lots || !entry.lots[lot]) {
+        return;
+    }
+    const inventoryQty = entry.lots[lot].quantity || 0;
+    const allocatedQty = (allocatedData[item] && allocatedData[item][lot]) ? allocatedData[item][lot] : 0;
+    const available = inventoryQty - allocatedQty;
+
+    if (!unitInput.value) {
+        unitInput.value = entry.lots[lot].unit || "";
+    }
+}
+
+itemInput.addEventListener("input", () => {
+    updateLotOptions();
+    updateAvailability();
+});
+
+lotInput.addEventListener("input", updateAvailability);
+</script>
+
+{% endblock %}

@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="dashboard-header">
+    <div>
+        <h2>Purchasing Dashboard</h2>
+        <p class="muted">All ingredients marked as purchased and on the way.</p>
+    </div>
+    <a href="/current" class="button-link">Back to Inventory</a>
+</div>
+
+{% if purchases %}
+<table>
+    <tr>
+        <th>Item Number</th>
+        <th>Name</th>
+        <th>Quantity</th>
+        <th>Unit</th>
+        <th>Lot</th>
+        <th>Supplier</th>
+        <th>EXP</th>
+        <th>Action</th>
+    </tr>
+    {% for purchase in purchases %}
+    <tr>
+        <td>{{ purchase[1] }}</td>
+        <td>{{ purchase[2] }}</td>
+        <td>{{ purchase[3] }}</td>
+        <td>{{ purchase[4] }}</td>
+        <td>{{ purchase[5] }}</td>
+        <td>{{ purchase[6] }}</td>
+        <td>{{ purchase[7] }}</td>
+        <td>
+            <form method="POST" action="/purchases/deliver">
+                <input type="hidden" name="purchase_id" value="{{ purchase[0] }}">
+                <button type="submit">Mark Delivered</button>
+            </form>
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+{% else %}
+<p class="muted">No purchased ingredients right now.</p>
+{% endif %}
+
+{% endblock %}

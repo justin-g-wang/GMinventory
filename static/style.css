@@ -486,6 +486,10 @@ th, td {
     display: none;
 }
 
+.hidden {
+    display: none;
+}
+
 .edit-form input,
 .edit-form textarea {
     padding: 8px;

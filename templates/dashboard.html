@@ -64,57 +64,106 @@
                     </span>
                 </div>
                 <button type="button" class="edit-toggle">Edit Details</button>
-                <form method="POST" class="edit-form hidden">
-                    <input type="hidden" name="action" value="edit">
-                    <input type="hidden" name="project_id" value="{{ project.id }}">
-                    <label>Project Name
-                        <input type="text" name="name" value="{{ project.name }}" required>
-                    </label>
-                    <div class="inline-fields">
-                        <label>Quantity
-                            <input type="number" name="bags_bottles" value="{{ project.bags_bottles }}">
+                <div class="edit-panel hidden">
+                    <form method="POST" class="edit-form">
+                        <input type="hidden" name="action" value="edit">
+                        <input type="hidden" name="project_id" value="{{ project.id }}">
+                        <label>Project Name
+                            <input type="text" name="name" value="{{ project.name }}" required>
                         </label>
-                        <label>Packaging
-                            <select name="quantity_unit">
-                                <option value="Bags" {% if project.quantity_unit == "Bags" %}selected{% endif %}>Bags</option>
-                                <option value="Bottles" {% if project.quantity_unit == "Bottles" %}selected{% endif %}>Bottles</option>
-                            </select>
-                        </label>
-                        <label>Gummies
-                            <input type="number" name="gummies" value="{{ project.gummies }}">
-                        </label>
-                    </div>
-                    <label>Produced Quantity
-                        <input type="number" name="completed_bags" value="{{ project.completed_bags }}">
-                    </label>
-                    <label>Storage Type
-                        <select name="storage_status">
-                            <option value="PPS" {% if project.storage_status == "PPS" %}selected{% endif %}>PPS</option>
-                            <option value="Shipped Out" {% if project.storage_status == "Shipped Out" %}selected{% endif %}>Shipped Out</option>
-                        </select>
-                    </label>
-                    <label>Notes
-                        <textarea name="description" rows="3">{{ project.description }}</textarea>
-                    </label>
-                    <label>Due Date
-                        <input type="date" name="due_date" value="{{ project.due_date }}">
-                    </label>
-                    <div class="status-form__controls">
-                        <label>Status
-                            <select name="status" class="status-select">
-                                <option value="Pending" {% if project.status == "Pending" %}selected{% endif %}>Pending</option>
-                                <option value="In Progress" {% if project.status == "In Progress" %}selected{% endif %}>In Progress</option>
-                                <option value="Completed" {% if project.status == "Completed" %}selected{% endif %}>Completed</option>
-                            </select>
-                        </label>
-                        <div class="complete-extra {% if project.status != 'Completed' %}hidden{% endif %}">
-                            <label>Completion Date
-                                <input type="date" name="completion_date" value="{{ project.completed_on }}">
+                        <div class="inline-fields">
+                            <label>Quantity
+                                <input type="number" name="bags_bottles" value="{{ project.bags_bottles }}">
+                            </label>
+                            <label>Packaging
+                                <select name="quantity_unit">
+                                    <option value="Bags" {% if project.quantity_unit == "Bags" %}selected{% endif %}>Bags</option>
+                                    <option value="Bottles" {% if project.quantity_unit == "Bottles" %}selected{% endif %}>Bottles</option>
+                                </select>
+                            </label>
+                            <label>Gummies
+                                <input type="number" name="gummies" value="{{ project.gummies }}">
                             </label>
                         </div>
+                        <label>Produced Quantity
+                            <input type="number" name="completed_bags" value="{{ project.completed_bags }}">
+                        </label>
+                        <label>Storage Type
+                            <select name="storage_status">
+                                <option value="PPS" {% if project.storage_status == "PPS" %}selected{% endif %}>PPS</option>
+                                <option value="Shipped Out" {% if project.storage_status == "Shipped Out" %}selected{% endif %}>Shipped Out</option>
+                            </select>
+                        </label>
+                        <label>Notes
+                            <textarea name="description" rows="3">{{ project.description }}</textarea>
+                        </label>
+                        <label>Due Date
+                            <input type="date" name="due_date" value="{{ project.due_date }}">
+                        </label>
+                        <div class="status-form__controls">
+                            <label>Status
+                                <select name="status" class="status-select">
+                                    <option value="Pending" {% if project.status == "Pending" %}selected{% endif %}>Pending</option>
+                                    <option value="In Progress" {% if project.status == "In Progress" %}selected{% endif %}>In Progress</option>
+                                    <option value="Completed" {% if project.status == "Completed" %}selected{% endif %}>Completed</option>
+                                </select>
+                            </label>
+                            <div class="complete-extra {% if project.status != 'Completed' %}hidden{% endif %}">
+                                <label>Completion Date
+                                    <input type="date" name="completion_date" value="{{ project.completed_on }}">
+                                </label>
+                            </div>
+                        </div>
+                        <button type="submit">Update</button>
+                    </form>
+                    <div class="form-card" style="margin-top: 16px;">
+                        <h2>Ingredients</h2>
+                        <form method="POST" action="/projects/{{ project.id }}/ingredients" class="ingredient-form">
+                            <input type="hidden" name="action" value="add">
+                            <label>Item Number
+                                <input list="ingredient_items" name="item_number" class="ingredient-item" required>
+                            </label>
+                            <label>Item Name (optional)
+                                <input type="text" name="item_name" class="ingredient-name">
+                            </label>
+                            <div class="inline-fields">
+                                <label>Quantity
+                                    <input type="number" name="quantity" step="0.0001" min="0.0001" required>
+                                </label>
+                                <label>Unit
+                                    <input type="text" name="unit" class="ingredient-unit" required>
+                                </label>
+                            </div>
+                            <label>Lot Number
+                                <input type="text" name="lot" class="ingredient-lot" required>
+                            </label>
+                            <label>Notes
+                                <textarea name="notes" rows="2"></textarea>
+                            </label>
+                            <button type="submit">Add Ingredient</button>
+                        </form>
+                        {% if project.ingredients %}
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Item</th>
+                                        <th>Qty</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for ingredient in project.ingredients %}
+                                    <tr>
+                                        <td>{{ ingredient.item_number }}{% if ingredient.ingredient_name %} - {{ ingredient.ingredient_name }}{% endif %}</td>
+                                        <td>{{ ingredient.quantity }} {{ ingredient.unit or "" }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        {% else %}
+                            <p class="muted">No ingredients yet.</p>
+                        {% endif %}
                     </div>
-                    <button type="submit">Update</button>
-                </form>
+                </div>
                 <form method="POST" class="delete-form" onsubmit="return confirm('Delete this project?');">
                     <input type="hidden" name="action" value="delete">
                     <input type="hidden" name="project_id" value="{{ project.id }}">
@@ -128,6 +177,12 @@
     </section>
 
 </div>
+
+<datalist id="ingredient_items">
+    {% for item in items %}
+        <option value="{{ item[0] }}">{{ item[0] }}{% if item[1] %} - {{ item[1] }}{% endif %}</option>
+    {% endfor %}
+</datalist>
 
 <script>
 document.querySelectorAll(".edit-form").forEach(form => {
@@ -159,6 +214,40 @@ document.querySelectorAll(".edit-toggle").forEach(button => {
     button.addEventListener("click", () => {
         form.classList.toggle("hidden");
     });
+});
+
+const inventoryData = {{ inventory_map|default({})|tojson }};
+document.querySelectorAll(".ingredient-form").forEach(form => {
+    const itemInput = form.querySelector(".ingredient-item");
+    const nameInput = form.querySelector(".ingredient-name");
+    const lotInput = form.querySelector(".ingredient-lot");
+    const unitInput = form.querySelector(".ingredient-unit");
+
+    const updateName = () => {
+        const item = itemInput.value.trim();
+        const entry = inventoryData[item];
+        if (entry && entry.name && !nameInput.value) {
+            nameInput.value = entry.name;
+        }
+    };
+
+    const updateUnit = () => {
+        const item = itemInput.value.trim();
+        const lot = lotInput.value.trim();
+        const entry = inventoryData[item];
+        if (!entry || !entry.lots || !entry.lots[lot]) {
+            return;
+        }
+        if (!unitInput.value) {
+            unitInput.value = entry.lots[lot].unit || "";
+        }
+    };
+
+    itemInput.addEventListener("input", () => {
+        updateName();
+        updateUnit();
+    });
+    lotInput.addEventListener("input", updateUnit);
 });
 
 function launchGummyRain() {

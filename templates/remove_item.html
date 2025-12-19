@@ -27,7 +27,7 @@
 
         <div class="inline-fields">
             <label>Quantity to Remove
-                <input type="number" name="quantity" id="qty_to_remove" required>
+                <input type="number" name="quantity" id="qty_to_remove" step="0.0001" min="0.0001" required>
             </label>
             <label>Unit
                 <input type="text" id="unit_display" class="unit-readonly" readonly placeholder="Unit">
@@ -95,7 +95,7 @@ function loadLotInfo() {
 
 document.getElementById("remove_form").addEventListener("submit", (event) => {
     if (!currentAvailability) return;
-    const qty = parseInt(document.getElementById("qty_to_remove").value, 10);
+    const qty = parseFloat(document.getElementById("qty_to_remove").value);
     if (isNaN(qty)) return;
     if (qty > currentAvailability.quantity) {
         event.preventDefault();

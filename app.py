@@ -21,6 +21,7 @@ LOW_STOCK_THRESHOLD = int(os.getenv("LOW_STOCK_THRESHOLD", "50"))
 MAILERSEND_BULK_BATCH_SIZE = max(1, int(os.getenv("MAILERSEND_BULK_BATCH_SIZE", "1")))
 EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 DEFAULT_ALERT_RECIPIENTS = ["jwang@gummymaker.us", "brandon121511@gmail.com"]
+INGREDIENT_STAGES = ("Purchased", "In Stock", "Allocated", "Used")
 
 def _low_stock_threshold_for_unit(unit):
     if not unit:
@@ -308,6 +309,24 @@ def init_db():
             created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    c.execute("ALTER TABLE projects ADD COLUMN IF NOT EXISTS customer_name TEXT")
+
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS project_ingredients (
+            id SERIAL PRIMARY KEY,
+            project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+            item_number TEXT NOT NULL,
+            lot TEXT,
+            quantity NUMERIC NOT NULL,
+            unit TEXT,
+            stage TEXT NOT NULL,
+            notes TEXT,
+            stocked_at TIMESTAMPTZ,
+            finalized_at TIMESTAMPTZ,
+            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
 
     c.execute("""
         CREATE TABLE IF NOT EXISTS dashboard_history (
@@ -361,6 +380,7 @@ def dashboard():
 
         if action == "create":
             name = request.form["name"].strip()
+            customer_name = request.form.get("customer_name", "").strip() or None
             notes = request.form.get("description", "").strip()
             due_date_str = request.form.get("due_date", "").strip()
             bags_bottles = to_int_or_none(request.form.get("bags_bottles"))
@@ -383,10 +403,10 @@ def dashboard():
 
             c.execute(
                 """
-                INSERT INTO projects (name, description, due_date, bags_bottles, gummies, storage_status, quantity_unit, completed_bags)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO projects (name, customer_name, description, due_date, bags_bottles, gummies, storage_status, quantity_unit, completed_bags)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
-                (name, notes, due_date, bags_bottles, gummies, storage_status, quantity_unit, completed_bags),
+                (name, customer_name, notes, due_date, bags_bottles, gummies, storage_status, quantity_unit, completed_bags),
             )
             log_dashboard_event(
                 c,
@@ -440,6 +460,7 @@ def dashboard():
         if action == "edit":
             project_id = request.form.get("project_id")
             name = request.form.get("name", "").strip()
+            customer_name = request.form.get("customer_name", "").strip() or None
             description = request.form.get("description", "").strip()
             bags_bottles = to_int_or_none(request.form.get("bags_bottles"))
             gummies = to_int_or_none(request.form.get("gummies"))
@@ -485,6 +506,7 @@ def dashboard():
                 """
                 UPDATE projects
                 SET name = %s,
+                    customer_name = %s,
                     description = %s,
                     due_date = %s,
                     bags_bottles = %s,
@@ -498,6 +520,7 @@ def dashboard():
                 """,
                 (
                     name,
+                    customer_name,
                     description,
                     due_date,
                     bags_bottles,
@@ -537,7 +560,7 @@ def dashboard():
 
     c.execute(
         """
-        SELECT id, name, description, due_date, status, bags_bottles, gummies, storage_status, quantity_unit, completed_bags, created_at
+        SELECT id, name, customer_name, description, due_date, status, bags_bottles, gummies, storage_status, quantity_unit, completed_bags, created_at
         FROM projects
         WHERE status <> 'Completed' OR status IS NULL
         ORDER BY due_date NULLS LAST, created_at
@@ -547,7 +570,7 @@ def dashboard():
 
     c.execute(
         """
-        SELECT id, name, description, due_date, status, bags_bottles, gummies, storage_status, quantity_unit, completed_bags, completed_on, created_at
+        SELECT id, name, customer_name, description, due_date, status, bags_bottles, gummies, storage_status, quantity_unit, completed_bags, completed_on, created_at
         FROM projects
         WHERE status = 'Completed'
         ORDER BY created_at DESC
@@ -559,13 +582,13 @@ def dashboard():
     def map_projects(rows, include_completed_fields=False):
         mapped = []
         for row in rows:
-            due_raw = row[3]
+            due_raw = row[4]
             due_date = due_raw.strftime("%Y-%m-%d") if due_raw else None
             due_status = "ok"
             if due_raw and due_raw < date.today():
                 due_status = "overdue"
-            total_quantity = row[5] or 0
-            completed = row[9] or 0
+            total_quantity = row[6] or 0
+            completed = row[10] or 0
             progress = 0
             if total_quantity and total_quantity > 0:
                 progress = min(100, max(0, int((completed / total_quantity) * 100)))
@@ -573,18 +596,19 @@ def dashboard():
                 {
                     "id": row[0],
                     "name": row[1],
-                    "description": row[2],
+                    "customer_name": row[2],
+                    "description": row[3],
                     "due_date": due_raw,
                     "due_display": due_date or "TBD",
                     "due_status": due_status,
-                    "status": row[4] or "Pending",
+                    "status": row[5] or "Pending",
                     "bags_bottles": total_quantity,
-                    "gummies": row[6],
-                    "storage_status": row[7],
-                    "quantity_unit": row[8] or "Bags",
+                    "gummies": row[7],
+                    "storage_status": row[8],
+                    "quantity_unit": row[9] or "Bags",
                     "completed_bags": completed,
                     "progress_percent": progress,
-                    "completed_on": row[10].strftime("%Y-%m-%d") if include_completed_fields and row[10] else None,
+                    "completed_on": row[11].strftime("%Y-%m-%d") if include_completed_fields and row[11] else None,
                 }
             )
         return mapped
@@ -612,7 +636,7 @@ def completed_projects_view():
     c = conn.cursor()
     c.execute(
         """
-        SELECT id, name, description, due_date, status, bags_bottles, gummies, storage_status, quantity_unit, completed_bags, completed_on, created_at
+        SELECT id, name, customer_name, description, due_date, status, bags_bottles, gummies, storage_status, quantity_unit, completed_bags, completed_on, created_at
         FROM projects
         WHERE status = 'Completed'
         ORDER BY completed_on DESC NULLS LAST, created_at DESC
@@ -627,15 +651,16 @@ def completed_projects_view():
             {
                 "id": row[0],
                 "name": row[1],
-                "description": row[2],
-                "due_date": row[3].strftime("%Y-%m-%d") if row[3] else None,
-                "status": row[4],
-                "bags_bottles": row[5],
-                "gummies": row[6],
-                "storage_status": row[7],
-                "quantity_unit": row[8] or "Bags",
-                "completed_bags": row[9],
-                "completed_on": row[10].strftime("%Y-%m-%d") if row[10] else None,
+                "customer_name": row[2],
+                "description": row[3],
+                "due_date": row[4].strftime("%Y-%m-%d") if row[4] else None,
+                "status": row[5],
+                "bags_bottles": row[6],
+                "gummies": row[7],
+                "storage_status": row[8],
+                "quantity_unit": row[9] or "Bags",
+                "completed_bags": row[10],
+                "completed_on": row[11].strftime("%Y-%m-%d") if row[11] else None,
             }
         )
 
@@ -832,7 +857,12 @@ def remove_item():
     if request.method == "POST":
         item_number = request.form["item_number"]
         lot = request.form["lot"]
-        qty_remove = int(request.form["quantity"])
+        try:
+            qty_remove = float(request.form["quantity"])
+        except (TypeError, ValueError):
+            return "ERROR: Quantity must be a number."
+        if qty_remove <= 0:
+            return "ERROR: Quantity must be greater than 0."
 
         conn = connect_db()
         c = conn.cursor()
@@ -849,6 +879,7 @@ def remove_item():
             return "ERROR: Lot does not exist."
 
         current_qty, unit, item_name, supplier, exp_value = row
+        current_qty = float(current_qty or 0)
 
         # ⚠️ Block removal if quantity too high
         if qty_remove > current_qty:
@@ -930,7 +961,12 @@ def adjust_item():
     if request.method == "POST":
         item_number = request.form["item_number"]
         lot = request.form["lot"]
-        new_quantity = int(request.form["new_quantity"])
+        try:
+            new_quantity = float(request.form["new_quantity"])
+        except (TypeError, ValueError):
+            return "ERROR: Quantity must be a number."
+        if new_quantity < 0:
+            return "ERROR: Quantity cannot be negative."
         new_unit = request.form["unit"]
         description = request.form.get("description", "").strip()
 
@@ -949,6 +985,7 @@ def adjust_item():
             return "ERROR: Item/Lot not found"
 
         old_quantity, old_unit = row
+        old_quantity = float(old_quantity or 0)
 
         # Update inventory
         c.execute("""

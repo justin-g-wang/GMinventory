@@ -31,6 +31,8 @@
             </a>
         </th>
         <th>Quantity</th>
+        <th>Allocated</th>
+        <th>Available</th>
         <th>Unit</th>
         <th>Lot</th>
         <th>Supplier</th>
@@ -42,6 +44,8 @@
         <td>{{ item[0] }}</td>
         <td>{{ item[1] }}</td>
         <td>{{ item[2] }}</td>
+        <td>{{ item[7] }}</td>
+        <td>{{ item[8] }}</td>
         <td>{{ item[3] }}</td>
         <td>{{ item[4] }}</td>
         <td>{{ item[5] }}</td>
@@ -49,5 +53,38 @@
     </tr>
     {% endfor %}
 </table>
+
+{% if purchases %}
+<h3>Purchased (On the Way)</h3>
+<table>
+    <tr>
+        <th>Item Number</th>
+        <th>Name</th>
+        <th>Quantity</th>
+        <th>Unit</th>
+        <th>Lot</th>
+        <th>Supplier</th>
+        <th>EXP</th>
+        <th>Action</th>
+    </tr>
+    {% for purchase in purchases %}
+    <tr>
+        <td>{{ purchase[1] }}</td>
+        <td>{{ purchase[2] }}</td>
+        <td>{{ purchase[3] }}</td>
+        <td>{{ purchase[4] }}</td>
+        <td>{{ purchase[5] }}</td>
+        <td>{{ purchase[6] }}</td>
+        <td>{{ purchase[7] }}</td>
+        <td>
+            <form method="POST" action="/purchases/deliver">
+                <input type="hidden" name="purchase_id" value="{{ purchase[0] }}">
+                <button type="submit">Mark Delivered</button>
+            </form>
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+{% endif %}
 
 {% endblock %}
